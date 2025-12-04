@@ -37,7 +37,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueNom,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.11.1";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1214999526;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -774782195;
 
 // Section: executor
 
@@ -123,6 +123,24 @@ fn wire__crate__api__generate_keypair_impl(
         move || {
             transform_result_dco::<_, _, ()>((move || {
                 let output_ok = Result::<_, ()>::Ok(crate::api::generate_keypair())?;
+                Ok(output_ok)
+            })())
+        },
+    )
+}
+fn wire__crate__api__generate_peer_id_from_secret_key_impl(
+    secret_key_hex: impl CstDecode<String>,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::DcoCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "generate_peer_id_from_secret_key",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let api_secret_key_hex = secret_key_hex.cst_decode();
+            transform_result_dco::<_, _, String>((move || {
+                let output_ok = crate::api::generate_peer_id_from_secret_key(api_secret_key_hex)?;
                 Ok(output_ok)
             })())
         },
@@ -1494,6 +1512,13 @@ mod io {
     }
 
     #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_cyberfly_mobile_node_wire__crate__api__generate_peer_id_from_secret_key(
+        secret_key_hex: *mut wire_cst_list_prim_u_8_strict,
+    ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
+        wire__crate__api__generate_peer_id_from_secret_key_impl(secret_key_hex)
+    }
+
+    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_cyberfly_mobile_node_wire__crate__api__get_all_data(port_: i64) {
         wire__crate__api__get_all_data_impl(port_)
     }
@@ -2096,6 +2121,13 @@ mod web {
     pub fn wire__crate__api__generate_keypair(
     ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
         wire__crate__api__generate_keypair_impl()
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__generate_peer_id_from_secret_key(
+        secret_key_hex: String,
+    ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
+        wire__crate__api__generate_peer_id_from_secret_key_impl(secret_key_hex)
     }
 
     #[wasm_bindgen]

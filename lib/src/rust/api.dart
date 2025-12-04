@@ -135,6 +135,13 @@ bool validateTimestamp({required PlatformInt64 timestamp}) =>
 String greet({required String name}) =>
     RustLib.instance.api.crateApiGreet(name: name);
 
+/// Generate libp2p PeerId from secret key (for Kadena blockchain registration)
+/// This matches the desktop cyberfly-rust-node implementation for backward compatibility
+String generatePeerIdFromSecretKey({required String secretKeyHex}) => RustLib
+    .instance
+    .api
+    .crateApiGeneratePeerIdFromSecretKey(secretKeyHex: secretKeyHex);
+
 /// List all databases in storage
 List<String> listDatabases() => RustLib.instance.api.crateApiListDatabases();
 

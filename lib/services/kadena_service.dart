@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:kadena_dart_sdk/kadena_dart_sdk.dart';
 import 'wallet_service.dart';
+import '../src/rust/api.dart' as rust_api;
 
 /// Node status from smart contract
 class NodeRegistrationStatus {
@@ -100,6 +101,20 @@ class KadenaService extends ChangeNotifier {
   String? get _publicKey => _walletService.publicKey;
   String? get _secretKey => _walletService.walletInfo?.secretKey;
   String? get _account => _walletService.account;
+
+  /// Generate libp2p PeerId from wallet secret key for Kadena registration
+  /// This matches the desktop cyberfly-rust-node implementation for backward compatibility
+  String? generateLibp2pPeerId() {
+    final secretKey = _secretKey;
+    if (secretKey == null) return null;
+    
+    try {
+      return rust_api.generatePeerIdFromSecretKey(secretKeyHex: secretKey);
+    } catch (e) {
+      debugPrint('Failed to generate libp2p PeerId: $e');
+      return null;
+    }
+  }
 
   /// Execute a local (read-only) Pact command
   Future<Map<String, dynamic>?> _localCommand(String pactCode) async {

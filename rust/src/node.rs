@@ -208,6 +208,18 @@ impl CyberflyNode {
 
         // Initialize storage
         let storage = Storage::new(data_path.join("sled_db"))?;
+        
+        // Log existing data on startup
+        let db_count = storage.list_databases().unwrap_or_default().len();
+        let key_count = storage.key_count().unwrap_or(0);
+        let size_bytes = storage.size_bytes().unwrap_or(0);
+        info!("📦 Storage loaded: {} databases, {} keys, {} bytes", db_count, key_count, size_bytes);
+        if db_count > 0 {
+            for db_name in storage.list_databases().unwrap_or_default() {
+                let keys = storage.list_keys(&db_name).unwrap_or_default();
+                info!("  📁 Database '{}': {} keys", db_name, keys.len());
+            }
+        }
 
         // Create channels
         let (command_tx, command_rx) = mpsc::channel(100);
@@ -869,6 +881,12 @@ impl CyberflyNode {
             match cmd {
                 NodeCommand::Stop(response) => {
                     info!("Stopping node");
+                    // Flush storage to disk before stopping
+                    if let Err(e) = storage.flush() {
+                        error!("Failed to flush storage on stop: {}", e);
+                    } else {
+                        info!("Storage flushed to disk successfully");
+                    }
                     let _ = event_tx.send(NodeEvent::Stopped).await;
                     let _ = router.shutdown().await;
                     let _ = response.send(());
@@ -953,6 +971,8 @@ impl CyberflyNode {
                         error!("Failed to store data: {}", e);
                         continue;
                     }
+                    // Flush immediately to ensure persistence
+                    let _ = storage.flush();
                     
                     // Create sync operation and broadcast
                     let value_str = String::from_utf8_lossy(&value).to_string();

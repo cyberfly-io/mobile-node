@@ -612,6 +612,30 @@ class RustLibWire implements BaseWire {
       _wire__crate__api__generate_keypairPtr
           .asFunction<WireSyncRust2DartDco Function()>();
 
+  WireSyncRust2DartDco wire__crate__api__generate_peer_id_from_secret_key(
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> secret_key_hex,
+  ) {
+    return _wire__crate__api__generate_peer_id_from_secret_key(secret_key_hex);
+  }
+
+  late final _wire__crate__api__generate_peer_id_from_secret_keyPtr =
+      _lookup<
+        ffi.NativeFunction<
+          WireSyncRust2DartDco Function(
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+          )
+        >
+      >(
+        'frbgen_cyberfly_mobile_node_wire__crate__api__generate_peer_id_from_secret_key',
+      );
+  late final _wire__crate__api__generate_peer_id_from_secret_key =
+      _wire__crate__api__generate_peer_id_from_secret_keyPtr
+          .asFunction<
+            WireSyncRust2DartDco Function(
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            )
+          >();
+
   void wire__crate__api__get_all_data(int port_) {
     return _wire__crate__api__get_all_data(port_);
   }

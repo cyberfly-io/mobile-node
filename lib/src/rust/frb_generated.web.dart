@@ -469,6 +469,12 @@ class RustLibWire implements BaseWire {
   wire__crate__api__generate_keypair() =>
       wasmModule.wire__crate__api__generate_keypair();
 
+  JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__generate_peer_id_from_secret_key(String secret_key_hex) =>
+      wasmModule.wire__crate__api__generate_peer_id_from_secret_key(
+        secret_key_hex,
+      );
+
   void wire__crate__api__get_all_data(NativePortType port_) =>
       wasmModule.wire__crate__api__get_all_data(port_);
 
@@ -620,6 +626,9 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
 
   external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
   wire__crate__api__generate_keypair();
+
+  external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__generate_peer_id_from_secret_key(String secret_key_hex);
 
   external void wire__crate__api__get_all_data(NativePortType port_);
 

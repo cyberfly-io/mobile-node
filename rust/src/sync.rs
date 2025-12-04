@@ -367,6 +367,9 @@ impl SyncStore {
             }
         }
 
+        // Flush immediately to ensure persistence
+        self.storage.flush()?;
+        
         // Mark as applied
         self.mark_applied(&op.op_id).await;
         info!(op_id = %op.op_id, key = %full_key, "Applied operation to storage");

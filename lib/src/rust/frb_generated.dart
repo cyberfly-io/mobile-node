@@ -64,7 +64,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.11.1';
 
   @override
-  int get rustContentHash => 1214999526;
+  int get rustContentHash => -774782195;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -88,6 +88,8 @@ abstract class RustLibApi extends BaseApi {
   });
 
   KeyPairDto crateApiGenerateKeypair();
+
+  String crateApiGeneratePeerIdFromSecretKey({required String secretKeyHex});
 
   Future<List<DbEntryDto>> crateApiGetAllData();
 
@@ -273,6 +275,31 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiGenerateKeypairConstMeta =>
       const TaskConstMeta(debugName: "generate_keypair", argNames: []);
+
+  @override
+  String crateApiGeneratePeerIdFromSecretKey({required String secretKeyHex}) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          var arg0 = cst_encode_String(secretKeyHex);
+          return wire.wire__crate__api__generate_peer_id_from_secret_key(arg0);
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_String,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiGeneratePeerIdFromSecretKeyConstMeta,
+        argValues: [secretKeyHex],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiGeneratePeerIdFromSecretKeyConstMeta =>
+      const TaskConstMeta(
+        debugName: "generate_peer_id_from_secret_key",
+        argNames: ["secretKeyHex"],
+      );
 
   @override
   Future<List<DbEntryDto>> crateApiGetAllData() {

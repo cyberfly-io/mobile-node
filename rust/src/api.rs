@@ -360,6 +360,30 @@ pub fn greet(name: String) -> String {
     format!("Hello, {}! From Cyberfly Rust.", name)
 }
 
+/// Generate libp2p PeerId from secret key (for Kadena blockchain registration)
+/// This matches the desktop cyberfly-rust-node implementation for backward compatibility
+#[frb(sync)]
+pub fn generate_peer_id_from_secret_key(secret_key_hex: String) -> Result<String, String> {
+    // Decode the hex-encoded secret key
+    let secret_bytes = hex::decode(&secret_key_hex)
+        .map_err(|e| format!("Failed to decode secret key: {}", e))?;
+    
+    if secret_bytes.len() != 32 {
+        return Err(format!("Invalid secret key length: expected 32 bytes, got {}", secret_bytes.len()));
+    }
+
+    // Create ed25519 secret key and derive keypair
+    let secret = libp2p_identity::ed25519::SecretKey::try_from_bytes(secret_bytes)
+        .map_err(|e| format!("Failed to create secret key: {}", e))?;
+    
+    let keypair = libp2p_identity::ed25519::Keypair::from(secret);
+    
+    // Generate PeerId from the keypair's public key
+    let peer_id = libp2p_identity::PeerId::from_public_key(&keypair.public().into());
+    
+    Ok(peer_id.to_string())
+}
+
 /// Database entry for Flutter
 #[frb(dart_metadata=("freezed"))]
 pub struct DbEntryDto {
