@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/node_service.dart';
+import '../theme/theme.dart';
 
 class StatusIndicator extends StatefulWidget {
   final NodeStatus status;
@@ -43,15 +44,15 @@ class _StatusIndicatorState extends State<StatusIndicator>
   Widget build(BuildContext context) {
     final isRunning = widget.status.isRunning;
     final statusColor = isRunning
-        ? const Color(0xFF00FF88)
+        ? CyberColors.neonGreen
         : widget.isStarting
-        ? const Color(0xFFFFD93D)
-        : const Color(0xFFFF6B6B);
+        ? CyberColors.neonYellow
+        : CyberColors.neonRed;
     final statusText = isRunning
-        ? 'Online'
+        ? 'ONLINE'
         : widget.isStarting
-        ? 'Starting...'
-        : 'Offline';
+        ? 'STARTING...'
+        : 'OFFLINE';
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -60,12 +61,19 @@ class _StatusIndicatorState extends State<StatusIndicator>
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            statusColor.withOpacity(0.15),
-            statusColor.withOpacity(0.05),
+            statusColor.withOpacity(0.12),
+            CyberColors.backgroundCard.withOpacity(0.8),
           ],
         ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: statusColor.withOpacity(0.3), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: statusColor.withOpacity(0.15),
+            blurRadius: 20,
+            spreadRadius: 2,
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -78,15 +86,19 @@ class _StatusIndicatorState extends State<StatusIndicator>
                 height: 60,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: statusColor.withOpacity(0.2),
+                  color: statusColor.withOpacity(0.15),
+                  border: Border.all(
+                    color: statusColor.withOpacity(0.3),
+                    width: 2,
+                  ),
                   boxShadow: isRunning || widget.isStarting
                       ? [
                           BoxShadow(
                             color: statusColor.withOpacity(
-                              0.3 * _animation.value,
+                              0.4 * _animation.value,
                             ),
-                            blurRadius: 20 * _animation.value,
-                            spreadRadius: 5 * _animation.value,
+                            blurRadius: 24 * _animation.value,
+                            spreadRadius: 6 * _animation.value,
                           ),
                         ]
                       : null,
@@ -100,9 +112,9 @@ class _StatusIndicatorState extends State<StatusIndicator>
                       color: statusColor,
                       boxShadow: [
                         BoxShadow(
-                          color: statusColor.withOpacity(0.5),
-                          blurRadius: 10,
-                          spreadRadius: 2,
+                          color: statusColor.withOpacity(0.6),
+                          blurRadius: 12,
+                          spreadRadius: 3,
                         ),
                       ],
                     ),
@@ -111,12 +123,12 @@ class _StatusIndicatorState extends State<StatusIndicator>
                             padding: EdgeInsets.all(6),
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: Colors.black,
+                              color: CyberColors.backgroundDark,
                             ),
                           )
                         : Icon(
                             isRunning ? Icons.check : Icons.power_settings_new,
-                            color: Colors.black,
+                            color: CyberColors.backgroundDark,
                             size: 16,
                           ),
                   ),
@@ -137,26 +149,38 @@ class _StatusIndicatorState extends State<StatusIndicator>
                     Text(
                       statusText,
                       style: TextStyle(
+                        fontFamily: 'monospace',
                         color: statusColor,
-                        fontSize: 24,
+                        fontSize: 22,
                         fontWeight: FontWeight.bold,
+                        letterSpacing: 2,
+                        shadows: [
+                          Shadow(
+                            color: statusColor.withOpacity(0.5),
+                            blurRadius: 8,
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 10),
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.2),
+                        color: statusColor.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: statusColor.withOpacity(0.3),
+                        ),
                       ),
                       child: Text(
                         widget.status.health.toUpperCase(),
                         style: TextStyle(
+                          fontFamily: 'monospace',
                           color: statusColor,
-                          fontSize: 10,
+                          fontSize: 9,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1,
                         ),
@@ -164,29 +188,48 @@ class _StatusIndicatorState extends State<StatusIndicator>
                     ),
                   ],
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 if (isRunning) ...[
-                  Text(
-                    'Uptime: ${_formatUptime(widget.status.uptimeSeconds)}',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
-                      fontSize: 14,
-                    ),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.access_time,
+                        size: 14,
+                        color: CyberColors.textSecondary,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Uptime: ${_formatUptime(widget.status.uptimeSeconds)}',
+                        style: CyberTextStyles.mono.copyWith(
+                          fontSize: 13,
+                          color: CyberColors.textSecondary,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${widget.status.totalOperations} operations synced',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.5),
-                      fontSize: 12,
-                    ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.sync,
+                        size: 14,
+                        color: CyberColors.textDim,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${widget.status.totalOperations} operations synced',
+                        style: CyberTextStyles.caption.copyWith(
+                          color: CyberColors.textDim,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
                   ),
                 ] else if (!widget.isStarting) ...[
                   Text(
                     'Tap "Start Node" to connect',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.5),
-                      fontSize: 14,
+                    style: CyberTextStyles.caption.copyWith(
+                      color: CyberColors.textDim,
                     ),
                   ),
                 ],

@@ -85,17 +85,6 @@ class NodeInfoCard extends StatelessWidget {
 
           const SizedBox(height: 12),
 
-          // Public Key
-          _InfoRow(
-            label: 'Public Key',
-            value: _truncateId(nodeInfo.publicKey),
-            fullValue: nodeInfo.publicKey,
-            icon: Icons.key,
-            color: const Color(0xFF00FF88),
-          ),
-
-          const SizedBox(height: 12),
-
           // Version
           _InfoRow(
             label: 'Version',

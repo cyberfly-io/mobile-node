@@ -8,6 +8,7 @@ import 'screens/wallet_setup_screen.dart';
 import 'services/wallet_service.dart';
 import 'services/kadena_service.dart';
 import 'services/node_service.dart';
+import 'theme/theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,26 +40,7 @@ class CyberflyNodeApp extends StatelessWidget {
       child: MaterialApp(
         title: 'Cyberfly Node',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF00D9FF),
-            brightness: Brightness.dark,
-          ),
-          scaffoldBackgroundColor: const Color(0xFF0A0E21),
-          cardTheme: CardThemeData(
-            color: const Color(0xFF1D1E33),
-            elevation: 4,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-          ),
-          appBarTheme: const AppBarTheme(
-            backgroundColor: Color(0xFF0A0E21),
-            elevation: 0,
-            centerTitle: true,
-          ),
-        ),
+        theme: CyberFlyTheme.darkTheme,
         home: const AppEntryPoint(),
       ),
     );
@@ -135,20 +117,51 @@ class _AppEntryPointState extends State<AppEntryPoint> {
   @override
   Widget build(BuildContext context) {
     if (!_isInitialized) {
-      return const Scaffold(
-        backgroundColor: Color(0xFF0A0E21),
+      return Scaffold(
+        backgroundColor: CyberColors.backgroundDark,
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.hub_outlined,
-                size: 80,
-                color: Color(0xFF00D9FF),
+              // Animated logo with glow
+              AnimatedGradientBorder(
+                borderRadius: 50,
+                gradientColors: const [
+                  CyberColors.neonCyan,
+                  CyberColors.neonMagenta,
+                  CyberColors.neonCyan,
+                ],
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: CyberColors.cardDark,
+                    borderRadius: BorderRadius.circular(50),
+                  ),
+                  child: Image.asset(
+                    'assets/images/logo.png',
+                    width: 80,
+                    height: 80,
+                  ),
+                ),
               ),
-              SizedBox(height: 24),
-              CircularProgressIndicator(
-                color: Color(0xFF00D9FF),
+              const SizedBox(height: 32),
+              Text(
+                'CYBERFLY',
+                style: CyberTextStyles.neonTitle.copyWith(
+                  fontSize: 28,
+                  letterSpacing: 8,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Initializing Node...',
+                style: CyberTextStyles.body.copyWith(
+                  color: CyberColors.textDim,
+                ),
+              ),
+              const SizedBox(height: 24),
+              const GlowingProgressIndicator(
+                color: CyberColors.neonCyan,
               ),
             ],
           ),

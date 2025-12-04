@@ -10,6 +10,7 @@ A Flutter mobile application with Rust native library for P2P networking using I
 - **Latency Check**: URL latency measurement with gossip publication
 - **Ed25519 Cryptography**: Secure signatures for operations
 - **Beautiful UI**: Animated cyberpunk-style interface with real-time stats
+- **Background Service**: Node runs in foreground service even when app is closed
 
 ## Project Structure
 
@@ -18,22 +19,17 @@ lib/                  # Flutter Dart code
 ├── main.dart         # App entry point
 ├── models/           # Data models
 ├── screens/          # UI screens
-├── services/         # Business logic (node_service_rinf.dart)
-├── src/bindings/     # Generated rinf bindings
+├── services/         # Business logic
 └── widgets/          # Reusable UI components
 
-native/hub/           # Rust native library (via rinf)
+rust/                 # Rust native library (via flutter_rust_bridge)
 ├── src/
-│   ├── lib.rs        # Module declarations & rinf entry
-│   ├── signals.rs    # Dart<->Rust signal definitions
-│   ├── handlers.rs   # Signal handlers
+│   ├── lib.rs        # Module declarations
+│   ├── api.rs        # FFI API for Flutter
 │   ├── node.rs       # Core P2P node implementation
 │   ├── storage.rs    # Sled database wrapper
 │   ├── sync.rs       # Database replication protocol
-│   ├── gossip.rs     # Gossip message types
-│   ├── gossip_discovery.rs # Improved peer discovery (postcard + ed25519)
-│   ├── crypto.rs     # Ed25519 cryptography
-│   └── latency.rs    # URL latency checking
+│   └── crypto.rs     # Ed25519 cryptography
 └── Cargo.toml        # Rust dependencies
 ```
 
@@ -41,7 +37,7 @@ native/hub/           # Rust native library (via rinf)
 
 - Flutter SDK 3.x
 - Rust toolchain (install via [rustup](https://rustup.rs/))
-- rinf CLI
+- flutter_rust_bridge_codegen
 
 ## Setup
 
@@ -51,15 +47,14 @@ native/hub/           # Rust native library (via rinf)
 # Install Flutter dependencies
 flutter pub get
 
-# Install rinf CLI
-cargo install rinf_cli
+# Install flutter_rust_bridge codegen
+cargo install flutter_rust_bridge_codegen
 ```
 
-### 2. Generate Dart Bindings
+### 2. Generate FFI Bindings
 
 ```bash
-# Generate Dart bindings from Rust signal definitions
-rinf gen
+flutter_rust_bridge_codegen generate
 ```
 
 ### 3. Build for Platforms
@@ -70,9 +65,6 @@ flutter build apk
 
 # iOS
 flutter build ios
-
-# macOS (for desktop testing)
-flutter build macos
 ```
 
 ## Development
@@ -86,26 +78,24 @@ flutter run
 ### Building Rust Library
 
 ```bash
-cd native/hub
+cd rust
 cargo build --release
 ```
 
 ### Regenerating Bindings
 
-After modifying signal definitions in `native/hub/src/signals.rs`:
+After modifying API in `rust/src/api.rs`:
 
 ```bash
-rinf gen
+flutter_rust_bridge_codegen generate
 ```
 
 ## Compatible Network
 
 This app uses the same gossip topics as the reference implementation:
 
-- **Data Topic**: `decentralized-db-data-v1-iroh!!!`
-- **Sync Topic**: `decentralized-db-sync-v1-iroh!!!`
+- **Peer List Topic**: `decentralized-peer-list-v1-iroh!`
 - **Discovery Topic**: `decentralized-db-discovery-iroh!`
-- **Improved Discovery**: `cyberfly-discovery-v2-postcard!!` (postcard + ed25519 signed)
 
 Bootstrap Peer: `04b754ba2a3da0970d72d08b8740fb2ad96e63cf8f8bef6b7f1ab84e5b09a7f8@67.211.219.34:31001`
 
@@ -116,50 +106,6 @@ Bootstrap Peer: `04b754ba2a3da0970d72d08b8740fb2ad96e63cf8f8bef6b7f1ab84e5b09a7f
 - **Storage Usage**: Sled database size on disk
 - **Gossip Messages**: Received message count
 - **Uptime**: Node running duration
-- **Total Operations**: Synced database operations
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Flutter UI                            │
-│  ┌─────────────┐  ┌────────────┐  ┌──────────────────┐  │
-│  │ HomeScreen  │  │ StatCard   │  │ AnimatedBackground│  │
-│  └──────┬──────┘  └────────────┘  └──────────────────┘  │
-│         │                                                │
-│  ┌──────▼──────────┐                                    │
-│  │ NodeServiceRinf │  ◄── rinf signals ──►              │
-│  └──────┬──────────┘                                    │
-└─────────┼───────────────────────────────────────────────┘
-          │ (DartSignal / RustSignal)
-┌─────────▼───────────────────────────────────────────────┐
-│                    Rust Native Library                   │
-│  ┌──────────┐  ┌─────────┐  ┌────────┐  ┌───────────┐  │
-│  │ Handlers │──│  Node   │──│ Gossip │──│   Sync    │  │
-│  └──────────┘  └─────────┘  └────────┘  └───────────┘  │
-│       │             │            │            │         │
-│  ┌────▼────┐   ┌────▼────┐  ┌────▼────┐  ┌────▼────┐  │
-│  │ Signals │   │  Iroh   │  │ Topics  │  │  Sled   │  │
-│  │(bincode)│   │Endpoint │  │Discovery│  │   DB    │  │
-│  └─────────┘   └─────────┘  └─────────┘  └─────────┘  │
-└─────────────────────────────────────────────────────────┘
-```
-
-## Signal Types
-
-### Dart → Rust (DartSignal)
-- `StartNodeRequest` - Start the P2P node
-- `StopNodeRequest` - Stop the node
-- `GetNodeStatusRequest` - Get current status
-- `GetPeersRequest` - Get connected peers
-- `GetOperationsRequest` - Get database operations
-
-### Rust → Dart (RustSignal)
-- `NodeStartedResponse` - Node started successfully
-- `NodeStatusResponse` - Current node status
-- `PeersListResponse` - List of peers
-- `OperationsListResponse` - Database operations
-- `LogMessageEvent` - Log messages from Rust
 
 ## License
 

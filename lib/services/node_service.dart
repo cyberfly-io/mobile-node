@@ -163,6 +163,9 @@ class NodeService extends ChangeNotifier {
         await _backgroundService.initialize();
         _setupBackgroundServiceListener();
         debugPrint('Background service initialized');
+        
+        // Start status polling immediately - background service may already have node running
+        _startStatusPolling();
       }
       
       debugPrint('NodeService initialized (background: $useBackground)');
@@ -403,16 +406,18 @@ class NodeService extends ChangeNotifier {
   /// Fetch status and peers, only notify if changed
   Future<void> _fetchStatusAndPeers() async {
     debugPrint('>>> _fetchStatusAndPeers entered: isRunning=${_status.isRunning}, isStarting=$_isStarting');
-    if (!_status.isRunning && !_isStarting) {
-      debugPrint('_fetchStatusAndPeers: skipping - isRunning=${_status.isRunning}, isStarting=$_isStarting');
-      return;
-    }
     
     debugPrint('>>> About to call rust_api.getNodeStatus()');
     try {
       // Fetch status - NOW SYNC!
       final statusDto = rust_api.getNodeStatus();
       debugPrint('>>> Got status: connected=${statusDto.connectedPeers}, discovered=${statusDto.discoveredPeers}, gossip=${statusDto.gossipMessagesReceived}');
+      
+      // If status shows running but we didn't know, update our state
+      if (statusDto.isRunning && !_status.isRunning) {
+        _isStarting = false;
+        debugPrint('>>> Node is running (detected from status poll)');
+      }
       
       // Fetch peers if running - NOW SYNC!
       List<rust_api.PeerInfoDto> peersDto = [];
@@ -453,6 +458,7 @@ class NodeService extends ChangeNotifier {
       dto.isRunning,
       dto.connectedPeers,
       dto.discoveredPeers,
+      dto.uptimeSeconds,
       dto.gossipMessagesReceived,
       dto.storageSizeBytes,
       dto.totalKeys,
