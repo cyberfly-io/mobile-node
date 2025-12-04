@@ -4,6 +4,9 @@ use std::path::PathBuf;
 use anyhow::Result;
 use sled::Db;
 
+/// Special tree name for storing the operations log (for sync)
+const OPLOG_TREE: &str = "__oplog__";
+
 /// Storage wrapper for sled database
 #[derive(Clone)]
 pub struct Storage {
@@ -21,6 +24,43 @@ impl Storage {
             .open()?;
         
         Ok(Self { db })
+    }
+    
+    /// Store a signed operation to the operations log
+    pub fn put_operation(&self, op_id: &str, operation_json: &[u8]) -> Result<()> {
+        let tree = self.db.open_tree(OPLOG_TREE)?;
+        tree.insert(op_id, operation_json)?;
+        Ok(())
+    }
+    
+    /// Get a signed operation from the operations log
+    pub fn get_operation(&self, op_id: &str) -> Result<Option<Vec<u8>>> {
+        let tree = self.db.open_tree(OPLOG_TREE)?;
+        Ok(tree.get(op_id)?.map(|v| v.to_vec()))
+    }
+    
+    /// Check if an operation exists in the log
+    pub fn has_operation(&self, op_id: &str) -> Result<bool> {
+        let tree = self.db.open_tree(OPLOG_TREE)?;
+        Ok(tree.contains_key(op_id)?)
+    }
+    
+    /// Get all operations from the log
+    pub fn get_all_operations(&self) -> Result<Vec<Vec<u8>>> {
+        let tree = self.db.open_tree(OPLOG_TREE)?;
+        let ops: Vec<Vec<u8>> = tree
+            .iter()
+            .values()
+            .filter_map(|v| v.ok())
+            .map(|v| v.to_vec())
+            .collect();
+        Ok(ops)
+    }
+    
+    /// Get count of operations in the log
+    pub fn operation_count(&self) -> Result<usize> {
+        let tree = self.db.open_tree(OPLOG_TREE)?;
+        Ok(tree.len())
     }
 
     /// Get a value by database name and key
@@ -61,7 +101,7 @@ impl Storage {
             .tree_names()
             .iter()
             .filter_map(|n| String::from_utf8(n.to_vec()).ok())
-            .filter(|n| n != "__sled__default")
+            .filter(|n| n != "__sled__default" && n != OPLOG_TREE)
             .collect();
         Ok(names)
     }

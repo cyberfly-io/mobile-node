@@ -397,6 +397,16 @@ impl CyberflyNode {
         // Sync manager
         let sync_manager = Arc::new(SyncManager::new(storage.clone(), node_id.clone()));
         
+        // Load persisted operations from storage
+        match sync_manager.sync_store().load_from_storage().await {
+            Ok(loaded) => {
+                log_info!("✓ Loaded {} operations from persistent storage", loaded);
+            }
+            Err(e) => {
+                log_error!("Failed to load operations from storage: {}", e);
+            }
+        }
+        
         // Pending latency requests
         let pending_latency: Arc<RwLock<HashMap<String, PendingLatencyRequest>>> = 
             Arc::new(RwLock::new(HashMap::new()));

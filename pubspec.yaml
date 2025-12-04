@@ -27,6 +27,7 @@ dependencies:
   flutter_secure_storage: ^9.2.4
   provider: ^6.1.2
   http: ^1.2.2
+  local_auth: ^2.3.0
   # Background Service
   flutter_background_service: ^5.0.12
   flutter_background_service_android: ^6.2.8

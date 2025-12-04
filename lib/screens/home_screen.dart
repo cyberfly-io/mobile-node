@@ -72,12 +72,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         onPressed: () => nodeService.refreshStatus(),
                         icon: const Icon(Icons.refresh, color: CyberColors.neonCyan),
                         tooltip: 'Refresh',
-                      ),
-                    IconButton(
-                      onPressed: () => _showWalletInfo(context),
-                      icon: const Icon(Icons.account_balance_wallet, color: CyberColors.neonMagenta),
-                      tooltip: 'Wallet',
-                    ),
+                      )
                   ],
                   flexibleSpace: FlexibleSpaceBar(
                     title: Row(
@@ -363,50 +358,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  void _showWalletInfo(BuildContext context) {
-    final walletService = context.read<WalletService>();
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: CyberColors.cardDark,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'WALLET DETAILS',
-              style: CyberTextStyles.neonTitle.copyWith(
-                fontSize: 18,
-                letterSpacing: 2,
-              ),
-            ),
-            const SizedBox(height: 20),
-            _buildDetailRow('Account', walletService.account ?? ''),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () => _showBackupWarning(context),
-                icon: const Icon(Icons.key),
-                label: const Text('Show Recovery Phrase'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: CyberColors.neonOrange,
-                  side: const BorderSide(color: CyberColors.neonOrange),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildDetailRow(String label, String value) {
     return Column(

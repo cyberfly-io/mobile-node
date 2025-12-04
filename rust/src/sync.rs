@@ -226,11 +226,43 @@ pub struct SyncStore {
 
 impl SyncStore {
     pub fn new(storage: Arc<Storage>) -> Self {
-        Self {
+        let store = Self {
             operations: Arc::new(RwLock::new(HashMap::new())),
             applied_ops: Arc::new(RwLock::new(HashSet::new())),
             storage,
+        };
+        store
+    }
+    
+    /// Load operations from persistent storage (call on startup)
+    pub async fn load_from_storage(&self) -> Result<usize> {
+        let ops_data = self.storage.get_all_operations()?;
+        let mut loaded = 0;
+        
+        for op_bytes in ops_data {
+            if let Ok(op) = serde_json::from_slice::<SignedOperation>(&op_bytes) {
+                let crdt_key = op.crdt_key();
+                let mut ops = self.operations.write().await;
+                
+                // Apply LWW logic
+                if let Some((existing_ts, existing_op)) = ops.get(&crdt_key) {
+                    if op.timestamp < *existing_ts {
+                        continue;
+                    }
+                    if op.timestamp == *existing_ts && op.op_id <= existing_op.op_id {
+                        continue;
+                    }
+                }
+                
+                // Mark as already applied (it was persisted, so it must have been applied)
+                self.applied_ops.write().await.insert(op.op_id.clone());
+                ops.insert(crdt_key, (op.timestamp, op));
+                loaded += 1;
+            }
         }
+        
+        info!("Loaded {} operations from persistent storage", loaded);
+        Ok(loaded)
     }
 
     /// Check whether an operation has already been applied to storage
@@ -275,7 +307,14 @@ impl SyncStore {
             "Adding operation to SyncStore"
         );
 
-        // Store operation
+        // Persist to operations log
+        if let Ok(op_json) = serde_json::to_vec(&op) {
+            if let Err(e) = self.storage.put_operation(&op.op_id, &op_json) {
+                error!(op_id = %op.op_id, error = %e, "Failed to persist operation");
+            }
+        }
+
+        // Store operation in memory
         ops.insert(crdt_key, (op.timestamp, op));
 
         Ok(true)
@@ -292,6 +331,13 @@ impl SyncStore {
             }
             if op.timestamp == *existing_ts && op.op_id <= existing_op.op_id {
                 return Ok(false);
+            }
+        }
+
+        // Persist to operations log
+        if let Ok(op_json) = serde_json::to_vec(&op) {
+            if let Err(e) = self.storage.put_operation(&op.op_id, &op_json) {
+                error!(op_id = %op.op_id, error = %e, "Failed to persist operation");
             }
         }
 

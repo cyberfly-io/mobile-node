@@ -8,6 +8,7 @@ import 'screens/wallet_setup_screen.dart';
 import 'services/wallet_service.dart';
 import 'services/kadena_service.dart';
 import 'services/node_service.dart';
+import 'services/auth_service.dart';
 import 'theme/theme.dart';
 
 Future<void> main() async {
@@ -29,6 +30,7 @@ class CyberflyNodeApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => WalletService()),
         ChangeNotifierProvider(create: (_) => NodeService()),
+        ChangeNotifierProvider(create: (_) => AuthService()),
         ChangeNotifierProxyProvider<WalletService, KadenaService>(
           create: (context) => KadenaService(
             walletService: context.read<WalletService>(),
@@ -71,6 +73,10 @@ class _AppEntryPointState extends State<AppEntryPoint> {
   Future<void> _initializeApp() async {
     final walletService = context.read<WalletService>();
     final nodeService = context.read<NodeService>();
+    final authService = context.read<AuthService>();
+    
+    // Initialize auth service
+    await authService.initialize();
     
     // Load background service preference
     final prefs = await SharedPreferences.getInstance();

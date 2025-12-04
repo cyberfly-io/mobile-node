@@ -4,6 +4,10 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/node_service.dart';
 import '../services/wallet_service.dart';
+import '../services/auth_service.dart';
+import '../widgets/pin_input_dialog.dart';
+import 'wallet_setup_screen.dart';
+import 'main_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -43,6 +47,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     final walletService = context.watch<WalletService>();
     final nodeService = context.watch<NodeService>();
+    final authService = context.watch<AuthService>();
 
     return Scaffold(
       body: SafeArea(
@@ -103,6 +108,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                   const SizedBox(height: 24),
 
+                  // Security settings
+                  _buildSectionHeader('Security'),
+                  _buildSettingsCard([
+                    _buildActionTile(
+                      authService.hasPinSet ? 'Change PIN' : 'Set PIN',
+                      authService.hasPinSet 
+                        ? 'Change your security PIN'
+                        : 'Protect your wallet with a PIN',
+                      Icons.pin,
+                      const Color(0xFF00D9FF),
+                      () => _setupOrChangePin(context, authService),
+                    ),
+                    if (authService.hasPinSet) ...[
+                      _buildDivider(),
+                      _buildSwitchTile(
+                        'Biometric Unlock',
+                        authService.isBiometricAvailable
+                          ? 'Use fingerprint or face to unlock'
+                          : 'Biometrics not available on this device',
+                        Icons.fingerprint,
+                        authService.isBiometricEnabled,
+                        authService.isBiometricAvailable 
+                          ? (value) async {
+                              await authService.setBiometricEnabled(value);
+                              setState(() {});
+                            }
+                          : null,
+                      ),
+                      _buildDivider(),
+                      _buildActionTile(
+                        'Remove PIN',
+                        'Remove PIN protection',
+                        Icons.lock_open,
+                        Colors.orange,
+                        () => _removePin(context, authService),
+                      ),
+                    ],
+                  ]),
+
+                  const SizedBox(height: 24),
+
                   // Wallet settings
                   _buildSectionHeader('Wallet'),
                   _buildSettingsCard([
@@ -111,7 +157,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       'Backup your wallet recovery phrase',
                       Icons.key,
                       Colors.orange,
-                      () => _showRecoveryPhrase(context, walletService),
+                      () => _showRecoveryPhrase(context, walletService, authService),
                     ),
                     _buildDivider(),
                     _buildInfoTile(
@@ -239,24 +285,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
     String subtitle,
     IconData icon,
     bool value,
-    ValueChanged<bool> onChanged,
+    ValueChanged<bool>? onChanged,
   ) {
+    final isEnabled = onChanged != null;
     return ListTile(
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: const Color(0xFF00D9FF).withOpacity(0.2),
+          color: (isEnabled ? const Color(0xFF00D9FF) : Colors.grey).withOpacity(0.2),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Icon(icon, color: const Color(0xFF00D9FF), size: 20),
+        child: Icon(icon, color: isEnabled ? const Color(0xFF00D9FF) : Colors.grey, size: 20),
       ),
       title: Text(
         title,
-        style: const TextStyle(color: Colors.white, fontSize: 14),
+        style: TextStyle(color: isEnabled ? Colors.white : Colors.white54, fontSize: 14),
       ),
       subtitle: Text(
         subtitle,
-        style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
+        style: TextStyle(color: Colors.white.withOpacity(isEnabled ? 0.5 : 0.3), fontSize: 12),
       ),
       trailing: Switch(
         value: value,
@@ -438,7 +485,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _showRecoveryPhrase(BuildContext context, WalletService walletService) {
+  void _showRecoveryPhrase(BuildContext context, WalletService walletService, AuthService authService) async {
+    // If authentication is set up, require it first
+    if (authService.isAuthSetup) {
+      final authenticated = await authenticateUser(
+        context, 
+        authService: authService,
+        reason: 'Authenticate to view recovery phrase',
+      );
+      if (!authenticated) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Authentication required to view recovery phrase'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+    }
+    
+    if (!context.mounted) return;
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -553,7 +622,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _showResetConfirmation(BuildContext context, WalletService walletService) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         backgroundColor: const Color(0xFF1D1E33),
         title: const Text('🚨 Reset Wallet', style: TextStyle(color: Colors.red)),
         content: const Text(
@@ -563,17 +632,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () async {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
+              
+              // Stop node if running
+              final nodeService = context.read<NodeService>();
+              if (nodeService.isRunning) {
+                await nodeService.stopNode();
+              }
+              
+              // Delete wallet
               await walletService.deleteWallet();
+              
+              // Also clear PIN/biometric settings
+              final authService = context.read<AuthService>();
+              if (authService.hasPinSet) {
+                await authService.removePin();
+              }
+              
               if (context.mounted) {
-                // Navigate to wallet setup
-                Navigator.of(context).pushNamedAndRemoveUntil(
-                  '/setup',
+                // Navigate back to AppEntryPoint to show wallet setup
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(
+                    builder: (_) => const _WalletResetRedirect(),
+                  ),
                   (route) => false,
                 );
               }
@@ -584,5 +670,133 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _setupOrChangePin(BuildContext context, AuthService authService) async {
+    // If PIN already set, verify current PIN first
+    if (authService.hasPinSet) {
+      final verified = await PinInputDialog.show(
+        context,
+        authService: authService,
+        title: 'Enter Current PIN',
+        subtitle: 'Verify your current PIN to change it',
+      );
+      if (!verified || !context.mounted) return;
+    }
+    
+    if (!context.mounted) return;
+    
+    // Set new PIN
+    final success = await PinInputDialog.show(
+      context,
+      authService: authService,
+      title: authService.hasPinSet ? 'Set New PIN' : 'Set PIN',
+      subtitle: 'Enter a 4-6 digit PIN to protect your wallet',
+      isSetup: true,
+    );
+    
+    if (success && context.mounted) {
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(authService.hasPinSet ? 'PIN changed successfully' : 'PIN set successfully'),
+          backgroundColor: const Color(0xFF00FF88),
+        ),
+      );
+    }
+  }
+
+  Future<void> _removePin(BuildContext context, AuthService authService) async {
+    // Verify current PIN first
+    final verified = await PinInputDialog.show(
+      context,
+      authService: authService,
+      title: 'Enter PIN',
+      subtitle: 'Verify your PIN to remove it',
+    );
+    if (!verified || !context.mounted) return;
+    
+    // Confirm removal
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1D1E33),
+        title: const Text('Remove PIN?', style: TextStyle(color: Colors.orange)),
+        content: const Text(
+          'This will remove PIN protection from your wallet. Anyone with access to your device will be able to view your recovery phrase.',
+          style: TextStyle(color: Colors.white),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirm == true) {
+      await authService.removePin();
+      if (context.mounted) {
+        setState(() {});
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('PIN removed'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    }
+  }
+}
+
+/// Widget to redirect to wallet setup after wallet deletion
+class _WalletResetRedirect extends StatelessWidget {
+  const _WalletResetRedirect();
+
+  @override
+  Widget build(BuildContext context) {
+    return WalletSetupScreen(
+      onWalletCreated: () async {
+        // Set wallet keys for node identity
+        final walletService = context.read<WalletService>();
+        final nodeService = context.read<NodeService>();
+        if (walletService.walletInfo != null) {
+          await nodeService.setWalletKeys(
+            secretKey: walletService.walletInfo!.secretKey,
+            publicKey: walletService.walletInfo!.publicKey,
+          );
+          
+          // Start node
+          nodeService.startNode().catchError((e) {
+            debugPrint('Failed to start node: $e');
+          });
+        }
+        
+        if (context.mounted) {
+          // Navigate to main screen
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const _MainScreenRedirect()),
+            (route) => false,
+          );
+        }
+      },
+    );
+  }
+}
+
+/// Redirect to main screen after wallet creation
+class _MainScreenRedirect extends StatelessWidget {
+  const _MainScreenRedirect();
+
+  @override
+  Widget build(BuildContext context) {
+    // Import main_screen here to avoid circular imports
+    return const MainScreen();
   }
 }
