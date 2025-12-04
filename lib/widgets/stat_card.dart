@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/theme.dart';
 
+/// A themed statistics card that adapts to light/dark mode
 class StatCard extends StatelessWidget {
   final String title;
   final String value;
@@ -19,6 +20,11 @@ class StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final cardBgColor = isDarkMode 
+        ? CyberColors.backgroundCard 
+        : CyberColorsLight.backgroundCard;
+    
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -26,14 +32,14 @@ class StatCard extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [
             color.withOpacity(0.15),
-            CyberColors.backgroundCard.withOpacity(0.8),
+            cardBgColor.withOpacity(0.8),
           ],
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: color.withOpacity(0.3), width: 1),
         boxShadow: [
           BoxShadow(
-            color: color.withOpacity(0.15),
+            color: color.withOpacity(isDarkMode ? 0.15 : 0.1),
             blurRadius: 12,
             spreadRadius: 1,
           ),
@@ -111,7 +117,9 @@ class StatCard extends StatelessWidget {
                   Text(
                     subtitle!,
                     style: CyberTextStyles.caption.copyWith(
-                      color: CyberColors.textDim,
+                      color: isDarkMode 
+                          ? CyberColors.textDim 
+                          : CyberColorsLight.textSecondary,
                       fontSize: 10,
                     ),
                   ),

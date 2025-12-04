@@ -38,22 +38,25 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     final nodeService = context.watch<NodeService>();
     final walletService = context.watch<WalletService>();
+    final isDark = CyberTheme.isDark(context);
 
     return Scaffold(
       body: Stack(
         children: [
-          // Cyberpunk animated background with matrix rain
-          const MatrixRainBackground(
-            columns: 15,
-            speed: 0.8,
-            opacity: 0.1,
-          ),
+          // Cyberpunk animated background with matrix rain (dark mode only)
+          if (isDark) ...[
+            const MatrixRainBackground(
+              columns: 15,
+              speed: 0.8,
+              opacity: 0.1,
+            ),
 
-          // Hex grid overlay
-          const HexGridBackground(
-            hexSize: 50,
-            opacity: 0.05,
-          ),
+            // Hex grid overlay
+            const HexGridBackground(
+              hexSize: 50,
+              opacity: 0.05,
+            ),
+          ],
 
           // Main content
           SafeArea(
@@ -64,13 +67,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   expandedHeight: 120,
                   floating: true,
                   pinned: true,
-                  backgroundColor: CyberColors.backgroundDark.withOpacity(0.9),
+                  backgroundColor: CyberTheme.appBarBackground(context),
                   actions: [
                     // Refresh button
                     if (nodeService.isRunning)
                       IconButton(
                         onPressed: () => nodeService.refreshStatus(),
-                        icon: const Icon(Icons.refresh, color: CyberColors.neonCyan),
+                        icon: Icon(Icons.refresh, color: CyberTheme.primary(context)),
                         tooltip: 'Refresh',
                       )
                   ],
@@ -78,40 +81,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     title: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        AnimatedBuilder(
-                          animation: _pulseController,
-                          builder: (context, child) {
-                            return Container(
-                              width: 12,
-                              height: 12,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: nodeService.isRunning
-                                    ? Color.lerp(
-                                        CyberColors.neonCyan,
-                                        CyberColors.neonGreen,
-                                        _pulseController.value,
-                                      )
-                                    : CyberColors.textDim,
-                                boxShadow: nodeService.isRunning
-                                    ? [
-                                        BoxShadow(
-                                          color: CyberColors.neonCyan
-                                              .withOpacity(0.6 * _pulseController.value),
-                                          blurRadius: 12,
-                                          spreadRadius: 3,
-                                        ),
-                                      ]
-                                    : null,
-                              ),
-                            );
-                          },
+                        Image.asset(
+                          'assets/images/logo.png',
+                          width: 28,
+                          height: 28,
                         ),
                         const SizedBox(width: 10),
                         Text(
                           'CYBERFLY',
-                          style: CyberTextStyles.neonTitle.copyWith(
+                          style: TextStyle(
+                            fontFamily: 'monospace',
                             fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: CyberTheme.primary(context),
                             letterSpacing: 4,
                           ),
                         ),
@@ -129,7 +111,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Wallet card
-                        _buildWalletCard(walletService),
+                        _buildWalletCard(context, walletService),
 
                         const SizedBox(height: 16),
 
@@ -148,7 +130,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         const SizedBox(height: 24),
 
                         // Stats grid
-                        _buildStatsGrid(nodeService),
+                        _buildStatsGrid(context, nodeService),
 
                         const SizedBox(height: 24),
 
@@ -156,14 +138,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         if (nodeService.isRunning) ...[
                           Text(
                             'CONNECTED PEERS',
-                            style: CyberTextStyles.label.copyWith(
-                              color: CyberColors.neonCyan,
+                            style: TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: CyberTheme.primary(context),
                               letterSpacing: 2,
                             ),
                           ),
                           const SizedBox(height: 12),
                           nodeService.peers.isEmpty
-                              ? _buildEmptyPeersCard()
+                              ? _buildEmptyPeersCard(context)
                               : PeerList(peers: nodeService.peers),
                         ],
 
@@ -180,11 +165,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildWalletCard(WalletService walletService) {
+  Widget _buildWalletCard(BuildContext context, WalletService walletService) {
     if (!walletService.hasWallet) return const SizedBox.shrink();
+    
+    final isDark = CyberTheme.isDark(context);
+    final primaryColor = CyberTheme.primary(context);
+    final magentaColor = isDark ? CyberColors.neonMagenta : CyberColorsLight.primaryMagenta;
 
     return NeonGlowCard(
-      glowColor: CyberColors.neonMagenta,
+      glowColor: magentaColor,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -193,22 +182,26 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: CyberColors.neonMagenta.withOpacity(0.2),
+                  color: magentaColor.withOpacity(isDark ? 0.2 : 0.1),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: CyberColors.neonMagenta.withOpacity(0.3),
+                    color: magentaColor.withOpacity(0.3),
                   ),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.account_balance_wallet,
-                  color: CyberColors.neonMagenta,
+                  color: magentaColor,
                   size: 20,
                 ),
               ),
               const SizedBox(width: 12),
               Text(
                 'WALLET',
-                style: CyberTextStyles.label.copyWith(
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: CyberTheme.textPrimary(context),
                   letterSpacing: 2,
                 ),
               ),
@@ -222,8 +215,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           const SizedBox(height: 16),
           Text(
             'ACCOUNT',
-            style: CyberTextStyles.caption.copyWith(
-              color: CyberColors.textDim,
+            style: TextStyle(
+              fontSize: 12,
+              color: CyberTheme.textDim(context),
               letterSpacing: 1,
             ),
           ),
@@ -233,8 +227,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               Expanded(
                 child: Text(
                   walletService.account ?? '',
-                  style: CyberTextStyles.mono.copyWith(
+                  style: TextStyle(
+                    fontFamily: 'monospace',
                     fontSize: 12,
+                    color: CyberTheme.textPrimary(context),
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -248,14 +244,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     SnackBar(
                       content: Text(
                         'Account copied to clipboard',
-                        style: CyberTextStyles.body,
+                        style: TextStyle(color: CyberTheme.textPrimary(context)),
                       ),
-                      backgroundColor: CyberColors.cardDark,
+                      backgroundColor: CyberTheme.card(context),
                     ),
                   );
                 },
                 icon: const Icon(Icons.copy, size: 16),
-                color: CyberColors.neonCyan,
+                color: primaryColor,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
               ),
@@ -266,8 +262,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildStatsGrid(NodeService nodeService) {
+  Widget _buildStatsGrid(BuildContext context, NodeService nodeService) {
     final status = nodeService.status;
+    final primaryColor = CyberTheme.primary(context);
+    final successColor = CyberTheme.success(context);
 
     return GridView.count(
       crossAxisCount: 2,
@@ -281,76 +279,80 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           title: 'Connected Peers',
           value: status.connectedPeers.toString(),
           icon: Icons.people,
-          color: CyberColors.neonCyan,
+          color: primaryColor,
           subtitle: 'Active connections',
         ),
         StatCard(
           title: 'Discovered Peers',
           value: status.discoveredPeers.toString(),
           icon: Icons.radar,
-          color: CyberColors.neonGreen,
+          color: successColor,
           subtitle: 'Found via gossip',
         ),
         StatCard(
           title: 'Storage Keys',
           value: '${status.totalKeys}',
           icon: Icons.storage,
-          color: CyberColors.neonRed,
+          color: CyberTheme.error(context),
           subtitle: _formatBytes(status.storageSizeBytes),
         ),
         StatCard(
           title: 'Gossip Messages',
           value: status.gossipMessagesReceived.toString(),
           icon: Icons.message,
-          color: CyberColors.neonYellow,
+          color: CyberTheme.warning(context),
           subtitle: 'Received',
         ),
         StatCard(
           title: 'Latency Checks',
           value: status.latencyRequestsSent.toString(),
           icon: Icons.speed,
-          color: CyberColors.neonMagenta,
+          color: CyberTheme.isDark(context) ? CyberColors.neonMagenta : CyberColorsLight.primaryMagenta,
           subtitle: '${status.latencyResponsesReceived} responses',
         ),
         StatCard(
           title: 'Sync Operations',
           value: status.totalOperations.toString(),
           icon: Icons.sync,
-          color: CyberColors.neonOrange,
+          color: CyberTheme.isDark(context) ? CyberColors.neonOrange : CyberColorsLight.primaryOrange,
           subtitle: 'Total synced',
         ),
       ],
     );
   }
 
-  Widget _buildEmptyPeersCard() {
+  Widget _buildEmptyPeersCard(BuildContext context) {
+    final primaryColor = CyberTheme.primary(context);
+    
     return NeonGlowCard(
-      glowColor: CyberColors.neonCyan,
+      glowColor: primaryColor,
       glowIntensity: 0.3,
       child: Column(
         children: [
           Icon(
             Icons.people_outline,
             size: 48,
-            color: CyberColors.textDim,
+            color: CyberTheme.textDim(context),
           ),
           const SizedBox(height: 12),
           Text(
             'No peers connected yet',
-            style: CyberTextStyles.body.copyWith(
-              color: CyberColors.textSecondary,
+            style: TextStyle(
+              fontSize: 14,
+              color: CyberTheme.textSecondary(context),
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Discovering peers via gossip protocol...',
-            style: CyberTextStyles.caption.copyWith(
-              color: CyberColors.textDim,
+            style: TextStyle(
+              fontSize: 12,
+              color: CyberTheme.textDim(context),
             ),
           ),
           const SizedBox(height: 16),
-          const GlowingProgressIndicator(
-            color: CyberColors.neonCyan,
+          GlowingProgressIndicator(
+            color: primaryColor,
             size: 24,
           ),
         ],

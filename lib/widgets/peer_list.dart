@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/node_service.dart';
+import '../theme/theme.dart';
 
 class PeerList extends StatelessWidget {
   final List<PeerInfo> peers;
@@ -9,18 +10,30 @@ class PeerList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: isDarkMode 
+            ? Colors.white.withOpacity(0.05)
+            : CyberColorsLight.backgroundCard,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(
+          color: isDarkMode 
+              ? Colors.white.withOpacity(0.1)
+              : CyberColorsLight.border,
+        ),
       ),
       child: ListView.separated(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: peers.length,
-        separatorBuilder: (_, __) =>
-            Divider(color: Colors.white.withOpacity(0.1), height: 1),
+        separatorBuilder: (_, __) => Divider(
+          color: isDarkMode 
+              ? Colors.white.withOpacity(0.1)
+              : CyberColorsLight.divider,
+          height: 1,
+        ),
         itemBuilder: (context, index) {
           final peer = peers[index];
           return _PeerTile(peer: peer);
@@ -37,9 +50,14 @@ class _PeerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final statusColor = peer.isConnected
-        ? const Color(0xFF00FF88)
-        : const Color(0xFFFFD93D);
+        ? (isDarkMode ? const Color(0xFF00FF88) : CyberColorsLight.online)
+        : (isDarkMode ? const Color(0xFFFFD93D) : CyberColorsLight.warning);
+    final textColor = isDarkMode ? Colors.white : CyberColorsLight.textPrimary;
+    final secondaryTextColor = isDarkMode 
+        ? Colors.white.withOpacity(0.5) 
+        : CyberColorsLight.textSecondary;
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -63,8 +81,8 @@ class _PeerTile extends StatelessWidget {
           Expanded(
             child: Text(
               _truncateNodeId(peer.nodeId),
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: textColor,
                 fontFamily: 'monospace',
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
@@ -95,23 +113,23 @@ class _PeerTile extends StatelessWidget {
             Icon(
               Icons.access_time,
               size: 12,
-              color: Colors.white.withOpacity(0.5),
+              color: secondaryTextColor,
             ),
             const SizedBox(width: 4),
             Text(
               _formatLastSeen(peer.lastSeen),
               style: TextStyle(
-                color: Colors.white.withOpacity(0.5),
+                color: secondaryTextColor,
                 fontSize: 12,
               ),
             ),
             const SizedBox(width: 16),
-            Icon(Icons.speed, size: 12, color: Colors.white.withOpacity(0.5)),
+            Icon(Icons.speed, size: 12, color: secondaryTextColor),
             const SizedBox(width: 4),
             Text(
               peer.latencyMs != null ? '${peer.latencyMs}ms' : 'N/A',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.5),
+                color: secondaryTextColor,
                 fontSize: 12,
               ),
             ),
@@ -119,7 +137,7 @@ class _PeerTile extends StatelessWidget {
         ),
       ),
       trailing: IconButton(
-        icon: Icon(Icons.copy, color: Colors.white.withOpacity(0.5), size: 18),
+        icon: Icon(Icons.copy, color: secondaryTextColor, size: 18),
         onPressed: () {
           Clipboard.setData(ClipboardData(text: peer.nodeId));
           ScaffoldMessenger.of(context).showSnackBar(

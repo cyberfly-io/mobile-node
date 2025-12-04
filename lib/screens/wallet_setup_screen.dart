@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../services/wallet_service.dart';
 import '../services/auth_service.dart';
 import '../widgets/pin_input_dialog.dart';
+import '../theme/theme.dart';
 
 /// Wallet setup screen - shown when no wallet exists
 class WalletSetupScreen extends StatefulWidget {
@@ -51,8 +52,13 @@ class _WalletSetupScreenState extends State<WalletSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final backgroundColor = isDarkMode 
+        ? const Color(0xFF0A0E21) 
+        : CyberColorsLight.backgroundLight;
+    
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0E21),
+      backgroundColor: backgroundColor,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -77,13 +83,22 @@ class _WalletSetupScreenState extends State<WalletSetupScreen> {
   }
 
   Widget _buildWelcomeStep() {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDarkMode 
+        ? const Color(0xFF1D1E33) 
+        : CyberColorsLight.cardBackground;
+    final textColor = isDarkMode ? Colors.white : CyberColorsLight.textPrimary;
+    final secondaryTextColor = isDarkMode 
+        ? Colors.white.withValues(alpha: 0.7) 
+        : CyberColorsLight.textSecondary;
+    
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFF1D1E33),
+            color: cardColor,
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
@@ -100,12 +115,12 @@ class _WalletSetupScreenState extends State<WalletSetupScreen> {
           ),
         ),
         const SizedBox(height: 32),
-        const Text(
+        Text(
           'Welcome to Cyberfly',
           style: TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.bold,
-            color: Colors.white,
+            color: textColor,
           ),
         ),
         const SizedBox(height: 16),
@@ -113,7 +128,7 @@ class _WalletSetupScreenState extends State<WalletSetupScreen> {
           'Create or restore a wallet to start your P2P node',
           style: TextStyle(
             fontSize: 16,
-            color: Colors.white.withValues(alpha: 0.7),
+            color: secondaryTextColor,
           ),
           textAlign: TextAlign.center,
         ),
@@ -169,16 +184,30 @@ class _WalletSetupScreenState extends State<WalletSetupScreen> {
 
   Widget _buildMnemonicDisplayStep() {
     final words = _previewMnemonic?.split(' ') ?? [];
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDarkMode 
+        ? const Color(0xFF1D1E33) 
+        : CyberColorsLight.cardBackground;
+    final inputBgColor = isDarkMode 
+        ? const Color(0xFF0A0E21) 
+        : CyberColorsLight.inputBackground;
+    final textColor = isDarkMode ? Colors.white : CyberColorsLight.textPrimary;
+    final secondaryTextColor = isDarkMode 
+        ? Colors.white.withValues(alpha: 0.7) 
+        : CyberColorsLight.textSecondary;
+    final dimTextColor = isDarkMode 
+        ? Colors.white.withValues(alpha: 0.5) 
+        : CyberColorsLight.textDim;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Your Recovery Phrase',
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
-            color: Colors.white,
+            color: textColor,
           ),
         ),
         const SizedBox(height: 8),
@@ -186,7 +215,7 @@ class _WalletSetupScreenState extends State<WalletSetupScreen> {
           'Write down these 24 words in order. Keep them safe and never share them.',
           style: TextStyle(
             fontSize: 14,
-            color: Colors.white.withValues(alpha: 0.7),
+            color: secondaryTextColor,
           ),
         ),
         const SizedBox(height: 24),
@@ -194,7 +223,7 @@ class _WalletSetupScreenState extends State<WalletSetupScreen> {
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF1D1E33),
+              color: cardColor,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: const Color(0xFF00D9FF).withValues(alpha: 0.3),
@@ -215,7 +244,7 @@ class _WalletSetupScreenState extends State<WalletSetupScreen> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0A0E21),
+                    color: inputBgColor,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
@@ -223,7 +252,7 @@ class _WalletSetupScreenState extends State<WalletSetupScreen> {
                       Text(
                         '${index + 1}.',
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.5),
+                          color: dimTextColor,
                           fontSize: 12,
                         ),
                       ),
@@ -231,8 +260,8 @@ class _WalletSetupScreenState extends State<WalletSetupScreen> {
                       Expanded(
                         child: Text(
                           words[index],
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: textColor,
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
                           ),
@@ -296,9 +325,9 @@ class _WalletSetupScreenState extends State<WalletSetupScreen> {
           value: _mnemonicConfirmed,
           onChanged: (value) =>
               setState(() => _mnemonicConfirmed = value ?? false),
-          title: const Text(
+          title: Text(
             'I have safely stored my recovery phrase',
-            style: TextStyle(color: Colors.white, fontSize: 14),
+            style: TextStyle(color: textColor, fontSize: 14),
           ),
           controlAffinity: ListTileControlAffinity.leading,
           activeColor: const Color(0xFF00D9FF),
@@ -376,15 +405,27 @@ class _WalletSetupScreenState extends State<WalletSetupScreen> {
   }
 
   Widget _buildWordVerificationStep() {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDarkMode ? Colors.white : CyberColorsLight.textPrimary;
+    final secondaryTextColor = isDarkMode 
+        ? Colors.white.withValues(alpha: 0.7) 
+        : CyberColorsLight.textSecondary;
+    final cardColor = isDarkMode 
+        ? const Color(0xFF1D1E33) 
+        : CyberColorsLight.cardBackground;
+    final hintColor = isDarkMode 
+        ? Colors.white.withValues(alpha: 0.3) 
+        : CyberColorsLight.textDim;
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Verify Recovery Phrase',
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
-            color: Colors.white,
+            color: textColor,
           ),
         ),
         const SizedBox(height: 8),
@@ -392,7 +433,7 @@ class _WalletSetupScreenState extends State<WalletSetupScreen> {
           'Enter the following words from your recovery phrase to verify you have saved it correctly.',
           style: TextStyle(
             fontSize: 14,
-            color: Colors.white.withValues(alpha: 0.7),
+            color: secondaryTextColor,
           ),
         ),
         const SizedBox(height: 32),
@@ -446,7 +487,7 @@ class _WalletSetupScreenState extends State<WalletSetupScreen> {
                       return TextField(
                         controller: textEditingController,
                         focusNode: focusNode,
-                        style: const TextStyle(color: Colors.white, fontSize: 18),
+                        style: TextStyle(color: textColor, fontSize: 18),
                         autocorrect: false,
                         enableSuggestions: false,
                         textInputAction: index < 2 ? TextInputAction.next : TextInputAction.done,
@@ -458,10 +499,10 @@ class _WalletSetupScreenState extends State<WalletSetupScreen> {
                         decoration: InputDecoration(
                           hintText: 'Enter word ${wordIndex + 1}',
                           hintStyle: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.3),
+                            color: hintColor,
                           ),
                           filled: true,
-                          fillColor: const Color(0xFF1D1E33),
+                          fillColor: cardColor,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(
@@ -493,7 +534,7 @@ class _WalletSetupScreenState extends State<WalletSetupScreen> {
                         alignment: Alignment.topLeft,
                         child: Material(
                           elevation: 8,
-                          color: const Color(0xFF1D1E33),
+                          color: cardColor,
                           borderRadius: BorderRadius.circular(12),
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxHeight: 200, maxWidth: 280),
@@ -507,7 +548,7 @@ class _WalletSetupScreenState extends State<WalletSetupScreen> {
                                   dense: true,
                                   title: Text(
                                     option,
-                                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                                    style: TextStyle(color: textColor, fontSize: 16),
                                   ),
                                   onTap: () => onSelected(option),
                                 );
@@ -758,6 +799,17 @@ class _WalletSetupScreenState extends State<WalletSetupScreen> {
 
   Widget _buildRestoreView() {
     final walletService = context.watch<WalletService>();
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDarkMode ? Colors.white : CyberColorsLight.textPrimary;
+    final secondaryTextColor = isDarkMode 
+        ? Colors.white.withValues(alpha: 0.7) 
+        : CyberColorsLight.textSecondary;
+    final cardColor = isDarkMode 
+        ? const Color(0xFF1D1E33) 
+        : CyberColorsLight.cardBackground;
+    final hintColor = isDarkMode 
+        ? Colors.white.withValues(alpha: 0.3) 
+        : CyberColorsLight.textDim;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -769,14 +821,14 @@ class _WalletSetupScreenState extends State<WalletSetupScreen> {
                 _showRestoreOption = false;
                 _mnemonicController.clear();
               }),
-              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              icon: Icon(Icons.arrow_back, color: textColor),
             ),
-            const Text(
+            Text(
               'Restore Wallet',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: textColor,
               ),
             ),
           ],
@@ -786,7 +838,7 @@ class _WalletSetupScreenState extends State<WalletSetupScreen> {
           'Enter your 24-word recovery phrase to restore your wallet',
           style: TextStyle(
             fontSize: 14,
-            color: Colors.white.withValues(alpha: 0.7),
+            color: secondaryTextColor,
           ),
         ),
         const SizedBox(height: 24),
@@ -794,7 +846,7 @@ class _WalletSetupScreenState extends State<WalletSetupScreen> {
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF1D1E33),
+              color: cardColor,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: walletService.error != null
@@ -806,12 +858,12 @@ class _WalletSetupScreenState extends State<WalletSetupScreen> {
               controller: _mnemonicController,
               maxLines: null,
               expands: true,
-              style: const TextStyle(color: Colors.white, fontSize: 16),
+              style: TextStyle(color: textColor, fontSize: 16),
               decoration: InputDecoration(
                 hintText:
                     'Enter your recovery phrase (24 words separated by spaces)',
                 hintStyle: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.3),
+                  color: hintColor,
                 ),
                 border: InputBorder.none,
               ),

@@ -618,6 +618,609 @@ class CyberFlyTheme {
       ),
     );
   }
+
+  /// Light theme - Clean cyber-inspired light mode
+  static ThemeData get lightTheme {
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.light,
+      scaffoldBackgroundColor: CyberColorsLight.backgroundLight,
+      primaryColor: CyberColorsLight.primaryCyan,
+      
+      // Color Scheme
+      colorScheme: const ColorScheme.light(
+        primary: CyberColorsLight.primaryCyan,
+        secondary: CyberColorsLight.primaryMagenta,
+        tertiary: CyberColorsLight.primaryGreen,
+        surface: CyberColorsLight.cardBackground,
+        error: CyberColorsLight.error,
+        onPrimary: Colors.white,
+        onSecondary: Colors.white,
+        onSurface: CyberColorsLight.textPrimary,
+        onError: Colors.white,
+      ),
+
+      // AppBar Theme
+      appBarTheme: AppBarTheme(
+        backgroundColor: CyberColorsLight.backgroundLight.withOpacity(0.95),
+        foregroundColor: CyberColorsLight.textPrimary,
+        elevation: 0,
+        centerTitle: true,
+        systemOverlayStyle: const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+        ),
+        titleTextStyle: const TextStyle(
+          fontFamily: 'monospace',
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+          color: CyberColorsLight.primaryCyan,
+          letterSpacing: 2,
+        ),
+        iconTheme: const IconThemeData(
+          color: CyberColorsLight.primaryCyan,
+        ),
+      ),
+
+      // Card Theme
+      cardTheme: CardThemeData(
+        color: CyberColorsLight.cardBackground,
+        elevation: 2,
+        shadowColor: CyberColorsLight.primaryCyan.withOpacity(0.1),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: CyberColorsLight.borderColor,
+            width: 1,
+          ),
+        ),
+      ),
+
+      // Elevated Button Theme
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: CyberColorsLight.primaryCyan,
+          foregroundColor: Colors.white,
+          elevation: 2,
+          shadowColor: CyberColorsLight.primaryCyan.withOpacity(0.3),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          textStyle: const TextStyle(
+            fontFamily: 'monospace',
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1,
+          ),
+        ),
+      ),
+
+      // Outlined Button Theme
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: CyberColorsLight.primaryCyan,
+          side: const BorderSide(color: CyberColorsLight.primaryCyan, width: 1.5),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          textStyle: const TextStyle(
+            fontFamily: 'monospace',
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1,
+          ),
+        ),
+      ),
+
+      // Text Button Theme
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: CyberColorsLight.primaryCyan,
+          textStyle: const TextStyle(
+            fontFamily: 'monospace',
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.5,
+          ),
+        ),
+      ),
+
+      // Floating Action Button Theme
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: CyberColorsLight.primaryCyan,
+        foregroundColor: Colors.white,
+        elevation: 4,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+
+      // Input Decoration Theme
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: CyberColorsLight.inputBackground,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(
+            color: CyberColorsLight.borderColor,
+          ),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(
+            color: CyberColorsLight.borderColor,
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(
+            color: CyberColorsLight.primaryCyan,
+            width: 2,
+          ),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(
+            color: CyberColorsLight.error,
+            width: 1.5,
+          ),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(
+            color: CyberColorsLight.error,
+            width: 2,
+          ),
+        ),
+        labelStyle: const TextStyle(
+          color: CyberColorsLight.textSecondary,
+          fontFamily: 'monospace',
+        ),
+        hintStyle: TextStyle(
+          color: CyberColorsLight.textSecondary.withOpacity(0.7),
+          fontFamily: 'monospace',
+        ),
+        prefixIconColor: CyberColorsLight.textSecondary,
+        suffixIconColor: CyberColorsLight.textSecondary,
+      ),
+
+      // Progress Indicator Theme
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: CyberColorsLight.primaryCyan,
+        linearTrackColor: CyberColorsLight.borderColor,
+        circularTrackColor: CyberColorsLight.borderColor,
+      ),
+
+      // Slider Theme
+      sliderTheme: SliderThemeData(
+        activeTrackColor: CyberColorsLight.primaryCyan,
+        inactiveTrackColor: CyberColorsLight.borderColor,
+        thumbColor: CyberColorsLight.primaryCyan,
+        overlayColor: CyberColorsLight.primaryCyan.withOpacity(0.2),
+        valueIndicatorColor: CyberColorsLight.primaryCyan,
+        valueIndicatorTextStyle: const TextStyle(
+          color: Colors.white,
+          fontFamily: 'monospace',
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+
+      // Switch Theme
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return CyberColorsLight.primaryCyan;
+          }
+          return CyberColorsLight.textSecondary;
+        }),
+        trackColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return CyberColorsLight.primaryCyan.withOpacity(0.3);
+          }
+          return CyberColorsLight.borderColor;
+        }),
+        trackOutlineColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return CyberColorsLight.primaryCyan.withOpacity(0.5);
+          }
+          return CyberColorsLight.borderColor;
+        }),
+      ),
+
+      // Checkbox Theme
+      checkboxTheme: CheckboxThemeData(
+        fillColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return CyberColorsLight.primaryCyan;
+          }
+          return Colors.transparent;
+        }),
+        checkColor: WidgetStateProperty.all(Colors.white),
+        side: BorderSide(
+          color: CyberColorsLight.primaryCyan.withOpacity(0.5),
+          width: 2,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(4),
+        ),
+      ),
+
+      // Chip Theme
+      chipTheme: ChipThemeData(
+        backgroundColor: CyberColorsLight.inputBackground,
+        selectedColor: CyberColorsLight.primaryCyan.withOpacity(0.2),
+        labelStyle: const TextStyle(
+          color: CyberColorsLight.textPrimary,
+          fontFamily: 'monospace',
+          fontSize: 12,
+        ),
+        side: BorderSide(
+          color: CyberColorsLight.borderColor,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+
+      // Dialog Theme
+      dialogTheme: DialogThemeData(
+        backgroundColor: CyberColorsLight.cardBackground,
+        elevation: 8,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(
+            color: CyberColorsLight.borderColor,
+          ),
+        ),
+        titleTextStyle: const TextStyle(
+          color: CyberColorsLight.primaryCyan,
+          fontFamily: 'monospace',
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
+        contentTextStyle: const TextStyle(
+          color: CyberColorsLight.textPrimary,
+          fontSize: 14,
+        ),
+      ),
+
+      // Bottom Sheet Theme
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: CyberColorsLight.cardBackground,
+        modalBackgroundColor: CyberColorsLight.cardBackground,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+      ),
+
+      // Snackbar Theme
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: CyberColorsLight.textPrimary,
+        contentTextStyle: const TextStyle(
+          color: Colors.white,
+          fontFamily: 'monospace',
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
+
+      // Tab Bar Theme
+      tabBarTheme: const TabBarThemeData(
+        labelColor: CyberColorsLight.primaryCyan,
+        unselectedLabelColor: CyberColorsLight.textSecondary,
+        indicatorColor: CyberColorsLight.primaryCyan,
+        indicatorSize: TabBarIndicatorSize.label,
+        labelStyle: TextStyle(
+          fontFamily: 'monospace',
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1,
+        ),
+        unselectedLabelStyle: TextStyle(
+          fontFamily: 'monospace',
+          letterSpacing: 1,
+        ),
+      ),
+
+      // Navigation Bar Theme
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: CyberColorsLight.cardBackground,
+        indicatorColor: CyberColorsLight.primaryCyan.withOpacity(0.2),
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return const TextStyle(
+              color: CyberColorsLight.primaryCyan,
+              fontFamily: 'monospace',
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            );
+          }
+          return const TextStyle(
+            color: CyberColorsLight.textSecondary,
+            fontFamily: 'monospace',
+            fontSize: 12,
+          );
+        }),
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return const IconThemeData(color: CyberColorsLight.primaryCyan);
+          }
+          return const IconThemeData(color: CyberColorsLight.textSecondary);
+        }),
+      ),
+
+      // Divider Theme
+      dividerTheme: DividerThemeData(
+        color: CyberColorsLight.borderColor,
+        thickness: 1,
+        space: 1,
+      ),
+
+      // Icon Theme
+      iconTheme: const IconThemeData(
+        color: CyberColorsLight.textPrimary,
+        size: 24,
+      ),
+
+      // Text Theme
+      textTheme: const TextTheme(
+        displayLarge: TextStyle(
+          color: CyberColorsLight.textPrimary,
+          fontFamily: 'monospace',
+          fontSize: 32,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 2,
+        ),
+        displayMedium: TextStyle(
+          color: CyberColorsLight.textPrimary,
+          fontFamily: 'monospace',
+          fontSize: 28,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1.5,
+        ),
+        displaySmall: TextStyle(
+          color: CyberColorsLight.textPrimary,
+          fontFamily: 'monospace',
+          fontSize: 24,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1,
+        ),
+        headlineLarge: TextStyle(
+          color: CyberColorsLight.primaryCyan,
+          fontFamily: 'monospace',
+          fontSize: 22,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1,
+        ),
+        headlineMedium: TextStyle(
+          color: CyberColorsLight.textPrimary,
+          fontFamily: 'monospace',
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+        ),
+        headlineSmall: TextStyle(
+          color: CyberColorsLight.textPrimary,
+          fontFamily: 'monospace',
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+        ),
+        titleLarge: TextStyle(
+          color: CyberColorsLight.textPrimary,
+          fontFamily: 'monospace',
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 0.5,
+        ),
+        titleMedium: TextStyle(
+          color: CyberColorsLight.textPrimary,
+          fontFamily: 'monospace',
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+        titleSmall: TextStyle(
+          color: CyberColorsLight.textSecondary,
+          fontFamily: 'monospace',
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
+        bodyLarge: TextStyle(
+          color: CyberColorsLight.textPrimary,
+          fontSize: 16,
+        ),
+        bodyMedium: TextStyle(
+          color: CyberColorsLight.textPrimary,
+          fontSize: 14,
+        ),
+        bodySmall: TextStyle(
+          color: CyberColorsLight.textSecondary,
+          fontSize: 12,
+        ),
+        labelLarge: TextStyle(
+          color: CyberColorsLight.textPrimary,
+          fontFamily: 'monospace',
+          fontSize: 14,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1,
+        ),
+        labelMedium: TextStyle(
+          color: CyberColorsLight.textSecondary,
+          fontFamily: 'monospace',
+          fontSize: 12,
+          letterSpacing: 0.5,
+        ),
+        labelSmall: TextStyle(
+          color: CyberColorsLight.textSecondary,
+          fontFamily: 'monospace',
+          fontSize: 10,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+}
+
+/// Light theme color palette
+class CyberColorsLight {
+  CyberColorsLight._();
+
+  // Primary Colors (darker for light background)
+  static const Color primaryCyan = Color(0xFF0097A7);
+  static const Color primaryMagenta = Color(0xFFAD1457);
+  static const Color primaryGreen = Color(0xFF2E7D32);
+  static const Color primaryYellow = Color(0xFFF9A825);
+  static const Color primaryOrange = Color(0xFFE65100);
+  static const Color primaryPurple = Color(0xFF6A1B9A);
+
+  // Background Colors
+  static const Color backgroundLight = Color(0xFFF5F7FA);
+  static const Color backgroundMedium = Color(0xFFECEFF3);
+  static const Color cardBackground = Color(0xFFFFFFFF);
+  static const Color backgroundCard = Color(0xFFFFFFFF); // Alias for consistency
+  static const Color inputBackground = Color(0xFFF0F2F5);
+
+  // Text Colors
+  static const Color textPrimary = Color(0xFF1A1F36);
+  static const Color textSecondary = Color(0xFF6B7280);
+  static const Color textDim = Color(0xFF9CA3AF);
+
+  // Border & Divider Colors
+  static const Color borderColor = Color(0xFFE5E7EB);
+  static const Color border = Color(0xFFE5E7EB); // Alias for consistency
+  static const Color divider = Color(0xFFE5E7EB);
+
+  // Status Colors
+  static const Color online = Color(0xFF10B981);
+  static const Color offline = Color(0xFF9CA3AF);
+  static const Color syncing = primaryCyan;
+  static const Color warning = Color(0xFFF59E0B);
+  static const Color error = Color(0xFFEF4444);
+  static const Color connecting = primaryOrange;
+
+  // Gradient Definitions
+  static const LinearGradient primaryGradient = LinearGradient(
+    colors: [primaryCyan, primaryMagenta],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static const LinearGradient backgroundGradient = LinearGradient(
+    colors: [backgroundLight, backgroundMedium],
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+  );
+}
+
+/// Theme-aware color helper - use this in widgets to get correct colors based on theme
+class CyberTheme {
+  CyberTheme._();
+
+  /// Check if current theme is dark
+  static bool isDark(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark;
+  }
+
+  /// Primary accent color (cyan)
+  static Color primary(BuildContext context) {
+    return isDark(context) ? CyberColors.neonCyan : CyberColorsLight.primaryCyan;
+  }
+
+  /// Background color
+  static Color background(BuildContext context) {
+    return isDark(context) ? CyberColors.backgroundDark : CyberColorsLight.backgroundLight;
+  }
+
+  /// Card/surface background color
+  static Color card(BuildContext context) {
+    return isDark(context) ? CyberColors.backgroundCard : CyberColorsLight.cardBackground;
+  }
+
+  /// Elevated card background
+  static Color cardElevated(BuildContext context) {
+    return isDark(context) ? CyberColors.backgroundElevated : CyberColorsLight.cardBackground;
+  }
+
+  /// Primary text color
+  static Color textPrimary(BuildContext context) {
+    return isDark(context) ? CyberColors.textPrimary : CyberColorsLight.textPrimary;
+  }
+
+  /// Secondary text color
+  static Color textSecondary(BuildContext context) {
+    return isDark(context) ? CyberColors.textSecondary : CyberColorsLight.textSecondary;
+  }
+
+  /// Dim/muted text color
+  static Color textDim(BuildContext context) {
+    return isDark(context) ? CyberColors.textDim : CyberColorsLight.textDim;
+  }
+
+  /// Border color
+  static Color border(BuildContext context) {
+    return isDark(context) 
+        ? CyberColors.textDim.withOpacity(0.2) 
+        : CyberColorsLight.borderColor;
+  }
+
+  /// Divider color
+  static Color divider(BuildContext context) {
+    return isDark(context) 
+        ? Colors.white.withOpacity(0.1) 
+        : CyberColorsLight.borderColor;
+  }
+
+  /// Success/online color
+  static Color success(BuildContext context) {
+    return isDark(context) ? CyberColors.neonGreen : CyberColorsLight.online;
+  }
+
+  /// Warning color
+  static Color warning(BuildContext context) {
+    return isDark(context) ? CyberColors.neonYellow : CyberColorsLight.warning;
+  }
+
+  /// Error color
+  static Color error(BuildContext context) {
+    return isDark(context) ? CyberColors.neonRed : CyberColorsLight.error;
+  }
+
+  /// Navigation bar background
+  static Color navBar(BuildContext context) {
+    return isDark(context) ? const Color(0xFF1D1E33) : CyberColorsLight.cardBackground;
+  }
+
+  /// Navigation bar shadow
+  static List<BoxShadow> navBarShadow(BuildContext context) {
+    return isDark(context)
+        ? [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, -2))]
+        : [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, -2))];
+  }
+
+  /// App bar background with opacity
+  static Color appBarBackground(BuildContext context, {double opacity = 0.9}) {
+    return isDark(context) 
+        ? CyberColors.backgroundDark.withOpacity(opacity)
+        : CyberColorsLight.backgroundLight.withOpacity(opacity);
+  }
+
+  /// Settings card decoration
+  static BoxDecoration settingsCard(BuildContext context, {Color? borderColor}) {
+    return BoxDecoration(
+      color: card(context),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(
+        color: borderColor ?? border(context),
+      ),
+    );
+  }
+
+  /// Icon container decoration
+  static BoxDecoration iconContainer(BuildContext context, Color color) {
+    return BoxDecoration(
+      color: color.withOpacity(isDark(context) ? 0.2 : 0.1),
+      borderRadius: BorderRadius.circular(8),
+    );
+  }
 }
 
 /// Text Styles for special use cases

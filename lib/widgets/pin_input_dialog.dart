@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/auth_service.dart';
+import '../theme/theme.dart';
 
 /// Dialog for PIN input and verification
 class PinInputDialog extends StatefulWidget {
@@ -117,12 +118,24 @@ class _PinInputDialogState extends State<PinInputDialog> {
   
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final backgroundColor = isDarkMode 
+        ? const Color(0xFF1D1E33) 
+        : CyberColorsLight.cardBackground;
+    final textColor = isDarkMode ? Colors.white : CyberColorsLight.textPrimary;
+    final secondaryTextColor = isDarkMode 
+        ? Colors.white.withOpacity(0.7) 
+        : CyberColorsLight.textSecondary;
+    final inputBgColor = isDarkMode 
+        ? const Color(0xFF0A0E21) 
+        : CyberColorsLight.inputBackground;
+    
     return AlertDialog(
-      backgroundColor: const Color(0xFF1D1E33),
+      backgroundColor: backgroundColor,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: Text(
         widget.title,
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(color: textColor),
       ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -132,7 +145,7 @@ class _PinInputDialogState extends State<PinInputDialog> {
             Text(
               widget.subtitle!,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
+                color: secondaryTextColor,
                 fontSize: 14,
               ),
             ),
@@ -148,8 +161,8 @@ class _PinInputDialogState extends State<PinInputDialog> {
             autofocus: true,
             enabled: !_showConfirm,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: textColor,
               fontSize: 24,
               letterSpacing: 8,
             ),
@@ -157,13 +170,13 @@ class _PinInputDialogState extends State<PinInputDialog> {
             decoration: InputDecoration(
               hintText: '••••',
               hintStyle: TextStyle(
-                color: Colors.white.withOpacity(0.3),
+                color: secondaryTextColor.withOpacity(0.5),
                 fontSize: 24,
                 letterSpacing: 8,
               ),
               counterText: '',
               filled: true,
-              fillColor: const Color(0xFF0A0E21),
+              fillColor: inputBgColor,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide.none,
@@ -184,7 +197,7 @@ class _PinInputDialogState extends State<PinInputDialog> {
             Text(
               'Confirm PIN',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
+                color: secondaryTextColor,
                 fontSize: 14,
               ),
             ),
@@ -196,8 +209,8 @@ class _PinInputDialogState extends State<PinInputDialog> {
               maxLength: 6,
               autofocus: true,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: textColor,
                 fontSize: 24,
                 letterSpacing: 8,
               ),
@@ -205,13 +218,13 @@ class _PinInputDialogState extends State<PinInputDialog> {
               decoration: InputDecoration(
                 hintText: '••••',
                 hintStyle: TextStyle(
-                  color: Colors.white.withOpacity(0.3),
+                  color: secondaryTextColor.withOpacity(0.5),
                   fontSize: 24,
                   letterSpacing: 8,
                 ),
                 counterText: '',
                 filled: true,
-                fillColor: const Color(0xFF0A0E21),
+                fillColor: inputBgColor,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -240,7 +253,7 @@ class _PinInputDialogState extends State<PinInputDialog> {
           onPressed: () => Navigator.of(context).pop(false),
           child: Text(
             'Cancel',
-            style: TextStyle(color: Colors.white.withOpacity(0.7)),
+            style: TextStyle(color: secondaryTextColor),
           ),
         ),
         ElevatedButton(

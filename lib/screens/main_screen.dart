@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/animated_background.dart';
+import '../theme/theme.dart';
 import 'home_screen.dart';
 import 'data_screen.dart';
 import 'stake_screen.dart';
@@ -24,11 +25,21 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = CyberTheme.isDark(context);
+    
     return Scaffold(
       body: Stack(
         children: [
-          // Shared animated background
-          const AnimatedBackground(),
+          // Shared animated background (only show in dark mode)
+          if (isDark) const AnimatedBackground(),
+          
+          // Light mode background
+          if (!isDark)
+            Container(
+              decoration: const BoxDecoration(
+                gradient: CyberColorsLight.backgroundGradient,
+              ),
+            ),
           
           // Current screen
           IndexedStack(
@@ -39,14 +50,11 @@ class _MainScreenState extends State<MainScreen> {
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF1D1E33),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              blurRadius: 10,
-              offset: const Offset(0, -2),
-            ),
-          ],
+          color: CyberTheme.navBar(context),
+          boxShadow: CyberTheme.navBarShadow(context),
+          border: isDark ? null : Border(
+            top: BorderSide(color: CyberColorsLight.borderColor, width: 1),
+          ),
         ),
         child: SafeArea(
           child: Padding(
@@ -54,10 +62,10 @@ class _MainScreenState extends State<MainScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildNavItem(0, Icons.home_outlined, Icons.home, 'Home'),
-                _buildNavItem(1, Icons.storage_outlined, Icons.storage, 'Data'),
-                _buildNavItem(2, Icons.toll_outlined, Icons.toll, 'Stake'),
-                _buildNavItem(3, Icons.settings_outlined, Icons.settings, 'Settings'),
+                _buildNavItem(context, 0, Icons.home_outlined, Icons.home, 'Home'),
+                _buildNavItem(context, 1, Icons.storage_outlined, Icons.storage, 'Data'),
+                _buildNavItem(context, 2, Icons.toll_outlined, Icons.toll, 'Stake'),
+                _buildNavItem(context, 3, Icons.settings_outlined, Icons.settings, 'Settings'),
               ],
             ),
           ),
@@ -66,9 +74,11 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  Widget _buildNavItem(int index, IconData icon, IconData activeIcon, String label) {
+  Widget _buildNavItem(BuildContext context, int index, IconData icon, IconData activeIcon, String label) {
     final isSelected = _currentIndex == index;
-    final color = isSelected ? const Color(0xFF00D9FF) : Colors.white.withOpacity(0.5);
+    final primaryColor = CyberTheme.primary(context);
+    final inactiveColor = CyberTheme.textSecondary(context);
+    final color = isSelected ? primaryColor : inactiveColor;
 
     return GestureDetector(
       onTap: () => setState(() => _currentIndex = index),
@@ -77,7 +87,7 @@ class _MainScreenState extends State<MainScreen> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF00D9FF).withOpacity(0.1) : Colors.transparent,
+          color: isSelected ? primaryColor.withOpacity(0.1) : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(

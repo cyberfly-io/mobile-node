@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/node_service.dart';
+import '../theme/theme.dart';
 
 class NodeInfoCard extends StatelessWidget {
   final NodeInfo nodeInfo;
@@ -9,6 +10,12 @@ class NodeInfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDarkMode ? Colors.white : CyberColorsLight.textPrimary;
+    final secondaryTextColor = isDarkMode 
+        ? Colors.white.withOpacity(0.7) 
+        : CyberColorsLight.textSecondary;
+    
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -16,8 +23,8 @@ class NodeInfoCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            const Color(0xFF00D9FF).withOpacity(0.15),
-            const Color(0xFF00FF88).withOpacity(0.05),
+            const Color(0xFF00D9FF).withOpacity(isDarkMode ? 0.15 : 0.1),
+            const Color(0xFF00FF88).withOpacity(isDarkMode ? 0.05 : 0.03),
           ],
         ),
         borderRadius: BorderRadius.circular(20),
@@ -51,7 +58,7 @@ class NodeInfoCard extends StatelessWidget {
                     Text(
                       'Node Identity',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
+                        color: secondaryTextColor,
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                         letterSpacing: 1,
@@ -60,8 +67,8 @@ class NodeInfoCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       'Cyberfly P2P Node',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: textColor,
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
@@ -124,6 +131,12 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDarkMode ? Colors.white : CyberColorsLight.textPrimary;
+    final secondaryTextColor = isDarkMode 
+        ? Colors.white.withOpacity(0.5) 
+        : CyberColorsLight.textSecondary;
+    
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -141,7 +154,7 @@ class _InfoRow extends StatelessWidget {
                 Text(
                   label,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.5),
+                    color: secondaryTextColor,
                     fontSize: 10,
                     fontWeight: FontWeight.w500,
                     letterSpacing: 0.5,
@@ -151,7 +164,7 @@ class _InfoRow extends StatelessWidget {
                 Text(
                   value,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.9),
+                    color: textColor.withOpacity(0.9),
                     fontSize: 13,
                     fontFamily: 'monospace',
                   ),

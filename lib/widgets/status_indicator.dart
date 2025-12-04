@@ -42,6 +42,7 @@ class _StatusIndicatorState extends State<StatusIndicator>
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final isRunning = widget.status.isRunning;
     final statusColor = isRunning
         ? CyberColors.neonGreen
@@ -53,6 +54,9 @@ class _StatusIndicatorState extends State<StatusIndicator>
         : widget.isStarting
         ? 'STARTING...'
         : 'OFFLINE';
+    final cardBgColor = isDarkMode 
+        ? CyberColors.backgroundCard 
+        : CyberColorsLight.backgroundCard;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -61,15 +65,15 @@ class _StatusIndicatorState extends State<StatusIndicator>
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            statusColor.withOpacity(0.12),
-            CyberColors.backgroundCard.withOpacity(0.8),
+            statusColor.withOpacity(isDarkMode ? 0.12 : 0.08),
+            cardBgColor.withOpacity(0.8),
           ],
         ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: statusColor.withOpacity(0.3), width: 1),
         boxShadow: [
           BoxShadow(
-            color: statusColor.withOpacity(0.15),
+            color: statusColor.withOpacity(isDarkMode ? 0.15 : 0.1),
             blurRadius: 20,
             spreadRadius: 2,
           ),
@@ -195,14 +199,14 @@ class _StatusIndicatorState extends State<StatusIndicator>
                       Icon(
                         Icons.access_time,
                         size: 14,
-                        color: CyberColors.textSecondary,
+                        color: isDarkMode ? CyberColors.textSecondary : CyberColorsLight.textSecondary,
                       ),
                       const SizedBox(width: 6),
                       Text(
                         'Uptime: ${_formatUptime(widget.status.uptimeSeconds)}',
                         style: CyberTextStyles.mono.copyWith(
                           fontSize: 13,
-                          color: CyberColors.textSecondary,
+                          color: isDarkMode ? CyberColors.textSecondary : CyberColorsLight.textSecondary,
                         ),
                       ),
                     ],
@@ -213,13 +217,13 @@ class _StatusIndicatorState extends State<StatusIndicator>
                       Icon(
                         Icons.sync,
                         size: 14,
-                        color: CyberColors.textDim,
+                        color: isDarkMode ? CyberColors.textDim : CyberColorsLight.textDim,
                       ),
                       const SizedBox(width: 6),
                       Text(
                         '${widget.status.totalOperations} operations synced',
                         style: CyberTextStyles.caption.copyWith(
-                          color: CyberColors.textDim,
+                          color: isDarkMode ? CyberColors.textDim : CyberColorsLight.textDim,
                           fontSize: 11,
                         ),
                       ),
@@ -229,7 +233,7 @@ class _StatusIndicatorState extends State<StatusIndicator>
                   Text(
                     'Tap "Start Node" to connect',
                     style: CyberTextStyles.caption.copyWith(
-                      color: CyberColors.textDim,
+                      color: isDarkMode ? CyberColors.textDim : CyberColorsLight.textDim,
                     ),
                   ),
                 ],

@@ -13,35 +13,38 @@ use tracing::{debug, info, warn};
 use crate::crypto;
 
 /// How long before a peer is considered expired (no announcement)
-pub const PEER_EXPIRY_SECS: u64 = 120;
+pub const PEER_EXPIRY_SECS: u64 = 300;
 
 /// How often to announce ourselves
-pub const ANNOUNCE_INTERVAL_SECS: u64 = 30;
+pub const ANNOUNCE_INTERVAL_SECS: u64 = 10;
 
 /// Node capabilities
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct NodeCapabilities {
-    /// Whether the node supports data storage
-    pub storage: bool,
-    /// Whether the node supports gossip messaging
-    pub gossip: bool,
+    /// Whether the node supports MQTT bridging
+    pub mqtt: bool,
+    /// Whether the node supports streams
+    pub streams: bool,
+    /// Whether the node supports timeseries data
+    pub timeseries: bool,
+    /// Whether the node supports geo features
+    pub geo: bool,
     /// Whether the node supports blob transfers
     pub blobs: bool,
     /// Whether the node is a mobile node
-    pub mobile: bool,
-    /// Custom capabilities
     #[serde(default)]
-    pub custom: HashMap<String, bool>,
+    pub mobile: bool,
 }
 
 impl NodeCapabilities {
     pub fn mobile_node() -> Self {
         Self {
-            storage: true,
-            gossip: true,
+            mqtt: false,
+            streams: false,
+            timeseries: false,
+            geo: false,
             blobs: true,
             mobile: true,
-            custom: HashMap::new(),
         }
     }
 }

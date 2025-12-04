@@ -57,13 +57,22 @@ class _NeonGlowCardState extends State<NeonGlowCard>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardGradient = isDark 
+        ? CyberColors.cardGradient 
+        : LinearGradient(
+            colors: [CyberColorsLight.cardBackground, CyberColorsLight.backgroundMedium],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          );
+    
     return AnimatedBuilder(
       animation: _glowAnimation,
       builder: (context, child) {
         return Container(
           margin: widget.margin,
           decoration: BoxDecoration(
-            gradient: CyberColors.cardGradient,
+            gradient: cardGradient,
             borderRadius: BorderRadius.circular(widget.borderRadius),
             border: Border.all(
               color: widget.glowColor.withOpacity(
@@ -143,6 +152,9 @@ class _GradientBorderCardState extends State<GradientBorderCard>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? CyberColors.backgroundCard : CyberColorsLight.cardBackground;
+    
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
@@ -168,7 +180,7 @@ class _GradientBorderCardState extends State<GradientBorderCard>
           child: Container(
             margin: EdgeInsets.all(widget.borderWidth),
             decoration: BoxDecoration(
-              color: CyberColors.backgroundCard,
+              color: bgColor,
               borderRadius: BorderRadius.circular(
                 widget.borderRadius - widget.borderWidth,
               ),
@@ -669,6 +681,8 @@ class LatencyMeter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? CyberColors.backgroundLight : CyberColorsLight.border;
     final color = _getLatencyColor();
     final progress = _getProgress();
 
@@ -696,7 +710,7 @@ class LatencyMeter extends StatelessWidget {
         Container(
           height: height,
           decoration: BoxDecoration(
-            color: CyberColors.backgroundLight,
+            color: bgColor,
             borderRadius: BorderRadius.circular(height / 2),
           ),
           child: Stack(
@@ -787,6 +801,9 @@ class _GlowingProgressIndicatorState extends State<GlowingProgressIndicator>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? CyberColors.backgroundLight : CyberColorsLight.border;
+    
     return AnimatedBuilder(
       animation: _glowAnimation,
       builder: (context, child) {
@@ -808,7 +825,7 @@ class _GlowingProgressIndicatorState extends State<GlowingProgressIndicator>
                   value: widget.value,
                   color: widget.color,
                   strokeWidth: widget.strokeWidth,
-                  backgroundColor: CyberColors.backgroundLight,
+                  backgroundColor: bgColor,
                 )
               : CircularProgressIndicator(
                   color: widget.color,
@@ -972,6 +989,9 @@ class _AnimatedGradientBorderState extends State<AnimatedGradientBorder>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? CyberColors.backgroundCard : CyberColorsLight.cardBackground;
+    
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
@@ -993,7 +1013,7 @@ class _AnimatedGradientBorderState extends State<AnimatedGradientBorder>
           child: Container(
             margin: EdgeInsets.all(widget.borderWidth),
             decoration: BoxDecoration(
-              color: CyberColors.backgroundCard,
+              color: bgColor,
               borderRadius: BorderRadius.circular(
                 widget.borderRadius - widget.borderWidth,
               ),

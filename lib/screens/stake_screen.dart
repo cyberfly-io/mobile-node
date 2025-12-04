@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/wallet_service.dart';
+import '../theme/theme.dart';
 
 class StakeScreen extends StatefulWidget {
   const StakeScreen({super.key});
@@ -75,6 +76,10 @@ class _StakeScreenState extends State<StakeScreen> {
   Widget build(BuildContext context) {
     // Watch wallet service for updates
     context.watch<WalletService>();
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final backgroundColor = isDarkMode 
+        ? const Color(0xFF0A0E21) 
+        : CyberColorsLight.backgroundLight;
 
     return Scaffold(
       body: SafeArea(
@@ -83,7 +88,7 @@ class _StakeScreenState extends State<StakeScreen> {
             SliverAppBar(
               title: const Text('Stake & Rewards'),
               floating: true,
-              backgroundColor: const Color(0xFF0A0E21).withOpacity(0.9),
+              backgroundColor: backgroundColor.withOpacity(0.9),
             ),
             SliverPadding(
               padding: const EdgeInsets.all(16),
@@ -116,11 +121,19 @@ class _StakeScreenState extends State<StakeScreen> {
   }
 
   Widget _buildOverviewCard() {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final cardColors = isDarkMode 
+        ? [const Color(0xFF1D1E33), const Color(0xFF2D2E43)]
+        : [CyberColorsLight.cardBackground, CyberColorsLight.backgroundMedium];
+    final dividerColor = isDarkMode 
+        ? Colors.white.withOpacity(0.1) 
+        : CyberColorsLight.divider;
+    
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1D1E33), Color(0xFF2D2E43)],
+        gradient: LinearGradient(
+          colors: cardColors,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -140,7 +153,7 @@ class _StakeScreenState extends State<StakeScreen> {
               Container(
                 width: 1,
                 height: 50,
-                color: Colors.white.withOpacity(0.1),
+                color: dividerColor,
               ),
               _buildStatColumn(
                 'Available',
@@ -150,7 +163,7 @@ class _StakeScreenState extends State<StakeScreen> {
               Container(
                 width: 1,
                 height: 50,
-                color: Colors.white.withOpacity(0.1),
+                color: dividerColor,
               ),
               _buildStatColumn(
                 'Rewards',
@@ -165,11 +178,16 @@ class _StakeScreenState extends State<StakeScreen> {
   }
 
   Widget _buildStatColumn(String label, String value, Color color) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final secondaryTextColor = isDarkMode 
+        ? Colors.white.withOpacity(0.6) 
+        : CyberColorsLight.textSecondary;
+    
     return Column(
       children: [
         Text(
           label,
-          style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12),
+          style: TextStyle(color: secondaryTextColor, fontSize: 12),
         ),
         const SizedBox(height: 8),
         Text(
@@ -185,10 +203,22 @@ class _StakeScreenState extends State<StakeScreen> {
   }
 
   Widget _buildStakingForm() {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDarkMode 
+        ? const Color(0xFF1D1E33) 
+        : CyberColorsLight.cardBackground;
+    final textColor = isDarkMode ? Colors.white : CyberColorsLight.textPrimary;
+    final secondaryTextColor = isDarkMode 
+        ? Colors.white.withOpacity(0.7) 
+        : CyberColorsLight.textSecondary;
+    final inputBgColor = isDarkMode 
+        ? const Color(0xFF0A0E21) 
+        : CyberColorsLight.inputBackground;
+    
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF1D1E33),
+        color: cardColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFF00D9FF).withOpacity(0.3)),
       ),
@@ -210,10 +240,10 @@ class _StakeScreenState extends State<StakeScreen> {
                 ),
               ),
               const SizedBox(width: 12),
-              const Text(
+              Text(
                 'Stake Tokens',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: textColor,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -224,14 +254,14 @@ class _StakeScreenState extends State<StakeScreen> {
           TextField(
             controller: _amountController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            style: const TextStyle(color: Colors.white, fontSize: 18),
+            style: TextStyle(color: textColor, fontSize: 18),
             decoration: InputDecoration(
               labelText: 'Amount to Stake',
-              labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+              labelStyle: TextStyle(color: secondaryTextColor),
               suffixText: 'CYB',
               suffixStyle: const TextStyle(color: Color(0xFF00D9FF)),
               filled: true,
-              fillColor: const Color(0xFF0A0E21),
+              fillColor: inputBgColor,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide.none,
@@ -308,10 +338,16 @@ class _StakeScreenState extends State<StakeScreen> {
   }
 
   Widget _buildRewardsSection() {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDarkMode 
+        ? const Color(0xFF1D1E33) 
+        : CyberColorsLight.cardBackground;
+    final textColor = isDarkMode ? Colors.white : CyberColorsLight.textPrimary;
+    
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF1D1E33),
+        color: cardColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFFFD93D).withOpacity(0.3)),
       ),
@@ -333,10 +369,10 @@ class _StakeScreenState extends State<StakeScreen> {
                 ),
               ),
               const SizedBox(width: 12),
-              const Text(
+              Text(
                 'Pending Rewards',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: textColor,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -386,19 +422,25 @@ class _StakeScreenState extends State<StakeScreen> {
   }
 
   Widget _buildInfoSection() {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDarkMode 
+        ? Colors.white.withOpacity(0.05) 
+        : CyberColorsLight.backgroundMedium;
+    final textColor = isDarkMode ? Colors.white : CyberColorsLight.textPrimary;
+    
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: cardColor,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'ℹ️ Staking Info',
             style: TextStyle(
-              color: Colors.white,
+              color: textColor,
               fontSize: 14,
               fontWeight: FontWeight.bold,
             ),
@@ -414,6 +456,12 @@ class _StakeScreenState extends State<StakeScreen> {
   }
 
   Widget _buildInfoRow(String label, String value) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDarkMode ? Colors.white : CyberColorsLight.textPrimary;
+    final secondaryTextColor = isDarkMode 
+        ? Colors.white.withOpacity(0.6) 
+        : CyberColorsLight.textSecondary;
+    
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -422,13 +470,13 @@ class _StakeScreenState extends State<StakeScreen> {
           Text(
             label,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.6),
+              color: secondaryTextColor,
               fontSize: 13,
             ),
           ),
           Text(
             value,
-            style: const TextStyle(color: Colors.white, fontSize: 13),
+            style: TextStyle(color: textColor, fontSize: 13),
           ),
         ],
       ),

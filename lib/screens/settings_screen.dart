@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/node_service.dart';
 import '../services/wallet_service.dart';
 import '../services/auth_service.dart';
+import '../services/theme_service.dart';
+import '../theme/theme.dart';
 import '../widgets/pin_input_dialog.dart';
 import 'wallet_setup_screen.dart';
 import 'main_screen.dart';
@@ -48,6 +50,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final walletService = context.watch<WalletService>();
     final nodeService = context.watch<NodeService>();
     final authService = context.watch<AuthService>();
+    final themeService = context.watch<ThemeService>();
 
     return Scaffold(
       body: SafeArea(
@@ -56,18 +59,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
             SliverAppBar(
               title: const Text('Settings'),
               floating: true,
-              backgroundColor: const Color(0xFF0A0E21).withOpacity(0.9),
+              backgroundColor: CyberTheme.appBarBackground(context),
             ),
             SliverPadding(
               padding: const EdgeInsets.all(16),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
                   // Node settings
-                  _buildSectionHeader('Node Settings'),
-                  _buildSettingsCard([
-                    _buildNodeStatusTile(nodeService),
-                    _buildDivider(),
+                  _buildSectionHeader(context, 'Node Settings'),
+                  _buildSettingsCard(context, [
+                    _buildNodeStatusTile(context, nodeService),
+                    _buildDivider(context),
                     _buildSwitchTile(
+                      context,
                       'Auto-start Node',
                       'Start node automatically on app launch',
                       Icons.play_circle_outline,
@@ -77,8 +81,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         _savePreference('autoStart', value);
                       },
                     ),
-                    _buildDivider(),
+                    _buildDivider(context),
                     _buildSwitchTile(
+                      context,
                       'Run in Background',
                       'Keep node running when app is minimized',
                       Icons.sync,
@@ -93,8 +98,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         );
                       },
                     ),
-                    _buildDivider(),
+                    _buildDivider(context),
                     _buildSwitchTile(
+                      context,
                       'Notifications',
                       'Show notifications for peer connections',
                       Icons.notifications_outlined,
@@ -108,21 +114,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                   const SizedBox(height: 24),
 
+                  // Appearance settings
+                  _buildSectionHeader(context, 'Appearance'),
+                  _buildSettingsCard(context, [
+                    _buildThemeSelector(context, themeService),
+                  ]),
+
+                  const SizedBox(height: 24),
+
                   // Security settings
-                  _buildSectionHeader('Security'),
-                  _buildSettingsCard([
+                  _buildSectionHeader(context, 'Security'),
+                  _buildSettingsCard(context, [
                     _buildActionTile(
+                      context,
                       authService.hasPinSet ? 'Change PIN' : 'Set PIN',
                       authService.hasPinSet 
                         ? 'Change your security PIN'
                         : 'Protect your wallet with a PIN',
                       Icons.pin,
-                      const Color(0xFF00D9FF),
+                      CyberTheme.primary(context),
                       () => _setupOrChangePin(context, authService),
                     ),
                     if (authService.hasPinSet) ...[
-                      _buildDivider(),
+                      _buildDivider(context),
                       _buildSwitchTile(
+                        context,
                         'Biometric Unlock',
                         authService.isBiometricAvailable
                           ? 'Use fingerprint or face to unlock'
@@ -136,8 +152,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             }
                           : null,
                       ),
-                      _buildDivider(),
+                      _buildDivider(context),
                       _buildActionTile(
+                        context,
                         'Remove PIN',
                         'Remove PIN protection',
                         Icons.lock_open,
@@ -150,23 +167,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 24),
 
                   // Wallet settings
-                  _buildSectionHeader('Wallet'),
-                  _buildSettingsCard([
+                  _buildSectionHeader(context, 'Wallet'),
+                  _buildSettingsCard(context, [
                     _buildActionTile(
+                      context,
                       'View Recovery Phrase',
                       'Backup your wallet recovery phrase',
                       Icons.key,
                       Colors.orange,
                       () => _showRecoveryPhrase(context, walletService, authService),
                     ),
-                    _buildDivider(),
+                    _buildDivider(context),
                     _buildInfoTile(
+                      context,
                       'Public Key',
                       walletService.publicKey ?? 'Not available',
                       Icons.vpn_key,
                     ),
-                    _buildDivider(),
+                    _buildDivider(context),
                     _buildInfoTile(
+                      context,
                       'Account',
                       walletService.account ?? 'Not available',
                       Icons.account_circle,
@@ -176,43 +196,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 24),
 
                   // Network info
-                  _buildSectionHeader('Network'),
-                  _buildSettingsCard([
+                  _buildSectionHeader(context, 'Network'),
+                  _buildSettingsCard(context, [
                     _buildInfoTile(
+                      context,
                       'Node ID',
                       nodeService.nodeInfo?.nodeId ?? 'Not running',
                       Icons.fingerprint,
-                    ),
-                    _buildDivider(),
-                    _buildInfoTile(
-                      'Relay URL',
-                      nodeService.nodeInfo?.relayUrl ?? 'None',
-                      Icons.router,
-                    ),
-                    _buildDivider(),
-                    _buildInfoTile(
-                      'Local Addresses',
-                      nodeService.nodeInfo?.localAddrs.join(', ') ?? 'None',
-                      Icons.lan,
                     ),
                   ]),
 
                   const SizedBox(height: 24),
 
                   // About
-                  _buildSectionHeader('About'),
-                  _buildSettingsCard([
+                  _buildSectionHeader(context, 'About'),
+                  _buildSettingsCard(context, [
                     _buildInfoTile(
+                      context,
                       'Version',
                       '1.0.0',
                       Icons.info_outline,
                     ),
-                    _buildDivider(),
+                    _buildDivider(context),
                     _buildActionTile(
+                      context,
                       'GitHub Repository',
                       'View source code',
                       Icons.code,
-                      const Color(0xFF00D9FF),
+                      CyberTheme.primary(context),
                       () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Opening GitHub...')),
@@ -224,9 +235,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 24),
 
                   // Danger zone
-                  _buildSectionHeader('Danger Zone', color: Colors.red),
-                  _buildSettingsCard([
+                  _buildSectionHeader(context, 'Danger Zone', color: Colors.red),
+                  _buildSettingsCard(context, [
                     _buildActionTile(
+                      context,
                       'Reset Wallet',
                       'Delete wallet and all local data',
                       Icons.delete_forever,
@@ -245,13 +257,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildSectionHeader(String title, {Color? color}) {
+  Widget _buildSectionHeader(BuildContext context, String title, {Color? color}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Text(
         title,
         style: TextStyle(
-          color: color ?? Colors.white.withOpacity(0.7),
+          color: color ?? CyberTheme.textSecondary(context),
           fontSize: 14,
           fontWeight: FontWeight.w600,
           letterSpacing: 0.5,
@@ -260,27 +272,142 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildSettingsCard(List<Widget> children, {Color? borderColor}) {
+  Widget _buildSettingsCard(BuildContext context, List<Widget> children, {Color? borderColor}) {
     return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF1D1E33),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: borderColor ?? Colors.white.withOpacity(0.1),
-        ),
-      ),
+      decoration: CyberTheme.settingsCard(context, borderColor: borderColor),
       child: Column(children: children),
     );
   }
 
-  Widget _buildDivider() {
+  Widget _buildDivider(BuildContext context) {
     return Divider(
       height: 1,
-      color: Colors.white.withOpacity(0.1),
+      color: CyberTheme.divider(context),
+    );
+  }
+
+  Widget _buildThemeSelector(BuildContext context, ThemeService themeService) {
+    final primaryColor = CyberTheme.primary(context);
+    final textPrimary = CyberTheme.textPrimary(context);
+    final textSecondary = CyberTheme.textSecondary(context);
+    
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: CyberTheme.iconContainer(context, primaryColor),
+                child: Icon(Icons.palette, color: primaryColor, size: 20),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Theme',
+                      style: TextStyle(color: textPrimary, fontSize: 14),
+                    ),
+                    Text(
+                      'Choose your preferred appearance',
+                      style: TextStyle(color: textSecondary, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              _buildThemeOption(
+                context,
+                themeService,
+                AppThemeMode.system,
+                Icons.settings_brightness,
+                'System',
+              ),
+              const SizedBox(width: 8),
+              _buildThemeOption(
+                context,
+                themeService,
+                AppThemeMode.light,
+                Icons.light_mode,
+                'Light',
+              ),
+              const SizedBox(width: 8),
+              _buildThemeOption(
+                context,
+                themeService,
+                AppThemeMode.dark,
+                Icons.dark_mode,
+                'Dark',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildThemeOption(
+    BuildContext context,
+    ThemeService themeService,
+    AppThemeMode mode,
+    IconData icon,
+    String label,
+  ) {
+    final isSelected = themeService.themeMode == mode;
+    final primaryColor = CyberTheme.primary(context);
+    final textSecondary = CyberTheme.textSecondary(context);
+    final isDark = CyberTheme.isDark(context);
+    
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => themeService.setThemeMode(mode),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          decoration: BoxDecoration(
+            color: isSelected 
+              ? primaryColor.withOpacity(0.2) 
+              : (isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.03)),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected 
+                ? primaryColor 
+                : CyberTheme.border(context),
+              width: isSelected ? 2 : 1,
+            ),
+          ),
+          child: Column(
+            children: [
+              Icon(
+                icon,
+                color: isSelected ? primaryColor : textSecondary,
+                size: 24,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? primaryColor : textSecondary,
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
   Widget _buildSwitchTile(
+    BuildContext context,
     String title,
     String subtitle,
     IconData icon,
@@ -288,43 +415,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ValueChanged<bool>? onChanged,
   ) {
     final isEnabled = onChanged != null;
+    final primaryColor = CyberTheme.primary(context);
+    final textPrimary = CyberTheme.textPrimary(context);
+    final textSecondary = CyberTheme.textSecondary(context);
+    
     return ListTile(
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: (isEnabled ? const Color(0xFF00D9FF) : Colors.grey).withOpacity(0.2),
+          color: (isEnabled ? primaryColor : Colors.grey).withOpacity(CyberTheme.isDark(context) ? 0.2 : 0.1),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Icon(icon, color: isEnabled ? const Color(0xFF00D9FF) : Colors.grey, size: 20),
+        child: Icon(icon, color: isEnabled ? primaryColor : Colors.grey, size: 20),
       ),
       title: Text(
         title,
-        style: TextStyle(color: isEnabled ? Colors.white : Colors.white54, fontSize: 14),
+        style: TextStyle(color: isEnabled ? textPrimary : textSecondary, fontSize: 14),
       ),
       subtitle: Text(
         subtitle,
-        style: TextStyle(color: Colors.white.withOpacity(isEnabled ? 0.5 : 0.3), fontSize: 12),
+        style: TextStyle(color: textSecondary.withOpacity(isEnabled ? 1.0 : 0.6), fontSize: 12),
       ),
       trailing: Switch(
         value: value,
         onChanged: onChanged,
-        activeColor: const Color(0xFF00FF88),
+        activeColor: CyberTheme.success(context),
       ),
     );
   }
 
   Widget _buildActionTile(
+    BuildContext context,
     String title,
     String subtitle,
     IconData icon,
     Color color,
     VoidCallback onTap,
   ) {
+    final textSecondary = CyberTheme.textSecondary(context);
+    
     return ListTile(
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.2),
+          color: color.withOpacity(CyberTheme.isDark(context) ? 0.2 : 0.1),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(icon, color: color, size: 20),
@@ -335,34 +469,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       subtitle: Text(
         subtitle,
-        style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
+        style: TextStyle(color: textSecondary, fontSize: 12),
       ),
       trailing: Icon(
         Icons.chevron_right,
-        color: Colors.white.withOpacity(0.3),
+        color: textSecondary.withOpacity(0.5),
       ),
       onTap: onTap,
     );
   }
 
-  Widget _buildInfoTile(String title, String value, IconData icon) {
+  Widget _buildInfoTile(BuildContext context, String title, String value, IconData icon) {
+    final textPrimary = CyberTheme.textPrimary(context);
+    final textSecondary = CyberTheme.textSecondary(context);
+    final isDark = CyberTheme.isDark(context);
+    
     return ListTile(
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.1),
+          color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Icon(icon, color: Colors.white.withOpacity(0.7), size: 20),
+        child: Icon(icon, color: textSecondary, size: 20),
       ),
       title: Text(
         title,
-        style: const TextStyle(color: Colors.white, fontSize: 14),
+        style: TextStyle(color: textPrimary, fontSize: 14),
       ),
       subtitle: Text(
         value,
         style: TextStyle(
-          color: Colors.white.withOpacity(0.5),
+          color: textSecondary,
           fontSize: 12,
           fontFamily: 'monospace',
         ),
@@ -373,7 +511,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         icon: Icon(
           Icons.copy,
           size: 16,
-          color: Colors.white.withOpacity(0.3),
+          color: textSecondary.withOpacity(0.5),
         ),
         onPressed: () {
           Clipboard.setData(ClipboardData(text: value));
@@ -385,43 +523,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildNodeStatusTile(NodeService nodeService) {
+  Widget _buildNodeStatusTile(BuildContext context, NodeService nodeService) {
     final isRunning = nodeService.isRunning;
     final isStarting = nodeService.isStarting;
+    final textPrimary = CyberTheme.textPrimary(context);
+    final successColor = CyberTheme.success(context);
+    final errorColor = CyberTheme.error(context);
+    final isDark = CyberTheme.isDark(context);
     
     return ListTile(
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           color: isRunning 
-            ? const Color(0xFF00FF88).withOpacity(0.2)
+            ? successColor.withOpacity(isDark ? 0.2 : 0.1)
             : isStarting
-              ? Colors.orange.withOpacity(0.2)
-              : Colors.red.withOpacity(0.2),
+              ? Colors.orange.withOpacity(isDark ? 0.2 : 0.1)
+              : errorColor.withOpacity(isDark ? 0.2 : 0.1),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(
           isRunning ? Icons.check_circle : isStarting ? Icons.sync : Icons.cancel,
           color: isRunning 
-            ? const Color(0xFF00FF88)
+            ? successColor
             : isStarting
               ? Colors.orange
-              : Colors.red,
+              : errorColor,
           size: 20,
         ),
       ),
       title: Text(
         'Node Status',
-        style: const TextStyle(color: Colors.white, fontSize: 14),
+        style: TextStyle(color: textPrimary, fontSize: 14),
       ),
       subtitle: Text(
         isRunning ? 'Running' : isStarting ? 'Starting...' : 'Stopped',
         style: TextStyle(
           color: isRunning 
-            ? const Color(0xFF00FF88)
+            ? successColor
             : isStarting
               ? Colors.orange
-              : Colors.red.withOpacity(0.7),
+              : errorColor.withOpacity(0.7),
           fontSize: 12,
         ),
       ),
@@ -440,8 +582,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               : () => nodeService.startNode(),
             style: ElevatedButton.styleFrom(
               backgroundColor: isRunning 
-                ? const Color(0xFFFF6B6B)
-                : const Color(0xFF00FF88),
+                ? errorColor
+                : successColor,
               foregroundColor: isRunning ? Colors.white : Colors.black,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               minimumSize: Size.zero,
@@ -457,26 +599,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _confirmStopNode(BuildContext context, NodeService nodeService) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1D1E33),
-        title: const Text('Stop Node?', style: TextStyle(color: Colors.white)),
-        content: const Text(
+      builder: (ctx) => AlertDialog(
+        backgroundColor: CyberTheme.card(context),
+        title: Text('Stop Node?', style: TextStyle(color: CyberTheme.textPrimary(context))),
+        content: Text(
           'Stopping the node will disconnect you from the P2P network. '
           'You will not receive any data updates while the node is stopped.',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: CyberTheme.textSecondary(context)),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(ctx),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.pop(ctx);
               nodeService.stopNode();
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFF6B6B),
+              backgroundColor: CyberTheme.error(context),
             ),
             child: const Text('Stop Node'),
           ),
@@ -510,21 +652,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
     
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1D1E33),
+      builder: (ctx) => AlertDialog(
+        backgroundColor: CyberTheme.card(context),
         title: const Text('⚠️ Warning', style: TextStyle(color: Colors.orange)),
-        content: const Text(
+        content: Text(
           'Your recovery phrase gives full access to your wallet. Never share it with anyone.',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: CyberTheme.textPrimary(context)),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(ctx),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.pop(ctx);
               _displayRecoveryPhrase(context, walletService);
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
@@ -543,24 +685,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1D1E33),
+      backgroundColor: CyberTheme.card(context),
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => Padding(
+      builder: (ctx) => Padding(
         padding: EdgeInsets.fromLTRB(
           24, 24, 24,
-          MediaQuery.of(context).viewInsets.bottom + 24,
+          MediaQuery.of(ctx).viewInsets.bottom + 24,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Recovery Phrase',
               style: TextStyle(
-                color: Colors.white,
+                color: CyberTheme.textPrimary(context),
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
@@ -569,7 +711,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF0A0E21),
+                color: CyberTheme.background(context),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.orange.withOpacity(0.3)),
               ),
@@ -580,13 +722,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   return Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1D1E33),
+                      color: CyberTheme.card(context),
                       borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: CyberTheme.border(context)),
                     ),
                     child: Text(
                       '${index + 1}. ${words[index]}',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: CyberTheme.textPrimary(context),
                         fontSize: 12,
                         fontFamily: 'monospace',
                       ),
@@ -601,15 +744,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: ElevatedButton.icon(
                 onPressed: () {
                   Clipboard.setData(ClipboardData(text: mnemonic));
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  ScaffoldMessenger.of(ctx).showSnackBar(
                     const SnackBar(content: Text('Recovery phrase copied')),
                   );
                 },
                 icon: const Icon(Icons.copy),
                 label: const Text('Copy to Clipboard'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF00D9FF),
-                  foregroundColor: Colors.black,
+                  backgroundColor: CyberTheme.primary(context),
+                  foregroundColor: CyberTheme.isDark(context) ? Colors.black : Colors.white,
                 ),
               ),
             ),
@@ -619,16 +762,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _showResetConfirmation(BuildContext context, WalletService walletService) {
+  void _showResetConfirmation(BuildContext context, WalletService walletService) async {
+    final authService = context.read<AuthService>();
+    
+    // Require authentication before allowing wallet deletion
+    if (authService.isAuthSetup) {
+      final authenticated = await authenticateUser(
+        context,
+        authService: authService,
+        reason: 'Authenticate to delete wallet',
+      );
+      if (!authenticated) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Authentication required to delete wallet'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+    }
+    
+    if (!context.mounted) return;
+    
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1D1E33),
+        backgroundColor: CyberTheme.card(context),
         title: const Text('🚨 Reset Wallet', style: TextStyle(color: Colors.red)),
-        content: const Text(
+        content: Text(
           'This will permanently delete your wallet and all local data. '
           'Make sure you have backed up your recovery phrase. This action cannot be undone.',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: CyberTheme.textPrimary(context)),
         ),
         actions: [
           TextButton(
@@ -649,7 +816,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               await walletService.deleteWallet();
               
               // Also clear PIN/biometric settings
-              final authService = context.read<AuthService>();
               if (authService.hasPinSet) {
                 await authService.removePin();
               }
@@ -700,7 +866,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(authService.hasPinSet ? 'PIN changed successfully' : 'PIN set successfully'),
-          backgroundColor: const Color(0xFF00FF88),
+          backgroundColor: CyberTheme.success(context),
         ),
       );
     }
@@ -719,20 +885,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // Confirm removal
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1D1E33),
+      builder: (ctx) => AlertDialog(
+        backgroundColor: CyberTheme.card(context),
         title: const Text('Remove PIN?', style: TextStyle(color: Colors.orange)),
-        content: const Text(
+        content: Text(
           'This will remove PIN protection from your wallet. Anyone with access to your device will be able to view your recovery phrase.',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: CyberTheme.textPrimary(context)),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
             child: const Text('Remove'),
           ),

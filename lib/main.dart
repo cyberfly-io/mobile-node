@@ -9,6 +9,7 @@ import 'services/wallet_service.dart';
 import 'services/kadena_service.dart';
 import 'services/node_service.dart';
 import 'services/auth_service.dart';
+import 'services/theme_service.dart';
 import 'theme/theme.dart';
 
 Future<void> main() async {
@@ -21,6 +22,17 @@ Future<void> main() async {
   runApp(const CyberflyNodeApp());
 }
 
+ThemeMode _getThemeMode(AppThemeMode mode) {
+  switch (mode) {
+    case AppThemeMode.light:
+      return ThemeMode.light;
+    case AppThemeMode.dark:
+      return ThemeMode.dark;
+    case AppThemeMode.system:
+      return ThemeMode.system;
+  }
+}
+
 class CyberflyNodeApp extends StatelessWidget {
   const CyberflyNodeApp({super.key});
 
@@ -31,6 +43,7 @@ class CyberflyNodeApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => WalletService()),
         ChangeNotifierProvider(create: (_) => NodeService()),
         ChangeNotifierProvider(create: (_) => AuthService()),
+        ChangeNotifierProvider(create: (_) => ThemeService()),
         ChangeNotifierProxyProvider<WalletService, KadenaService>(
           create: (context) => KadenaService(
             walletService: context.read<WalletService>(),
@@ -39,11 +52,17 @@ class CyberflyNodeApp extends StatelessWidget {
               previous ?? KadenaService(walletService: walletService),
         ),
       ],
-      child: MaterialApp(
-        title: 'Cyberfly Node',
-        debugShowCheckedModeBanner: false,
-        theme: CyberFlyTheme.darkTheme,
-        home: const AppEntryPoint(),
+      child: Consumer<ThemeService>(
+        builder: (context, themeService, child) {
+          return MaterialApp(
+            title: 'Cyberfly Node',
+            debugShowCheckedModeBanner: false,
+            theme: CyberFlyTheme.lightTheme,
+            darkTheme: CyberFlyTheme.darkTheme,
+            themeMode: _getThemeMode(themeService.themeMode),
+            home: const AppEntryPoint(),
+          );
+        },
       ),
     );
   }
@@ -74,9 +93,11 @@ class _AppEntryPointState extends State<AppEntryPoint> {
     final walletService = context.read<WalletService>();
     final nodeService = context.read<NodeService>();
     final authService = context.read<AuthService>();
+    final themeService = context.read<ThemeService>();
     
-    // Initialize auth service
+    // Initialize auth service and theme service
     await authService.initialize();
+    await themeService.initialize();
     
     // Load background service preference
     final prefs = await SharedPreferences.getInstance();

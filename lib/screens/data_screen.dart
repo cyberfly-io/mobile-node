@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../src/rust/api.dart' as rust_api;
+import '../theme/theme.dart';
 
 /// Model class for database operation display
 class DbOperation {
@@ -150,14 +151,24 @@ class _DataScreenState extends State<DataScreen> {
   }
 
   Future<void> _deleteEntry(DbOperation op) async {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1D1E33),
-        title: const Text('Delete Entry', style: TextStyle(color: Colors.white)),
+        backgroundColor: isDarkMode 
+            ? const Color(0xFF1D1E33) 
+            : CyberColorsLight.cardBackground,
+        title: Text(
+          'Delete Entry', 
+          style: TextStyle(
+            color: isDarkMode ? Colors.white : CyberColorsLight.textPrimary,
+          ),
+        ),
         content: Text(
           'Are you sure you want to delete "${op.key}" from "${op.dbName}"?',
-          style: const TextStyle(color: Colors.white70),
+          style: TextStyle(
+            color: isDarkMode ? Colors.white70 : CyberColorsLight.textSecondary,
+          ),
         ),
         actions: [
           TextButton(
@@ -203,7 +214,7 @@ class _DataScreenState extends State<DataScreen> {
             SliverAppBar(
               title: const Text('Data Explorer'),
               floating: true,
-              backgroundColor: const Color(0xFF0A0E21).withOpacity(0.9),
+              backgroundColor: CyberTheme.appBarBackground(context),
               actions: [
                 IconButton(
                   onPressed: _isLoading ? null : _fetchAllData,
@@ -218,9 +229,9 @@ class _DataScreenState extends State<DataScreen> {
                 delegate: SliverChildListDelegate([
                   // Database names chips (if any)
                   if (_dbNames.isNotEmpty) ...[
-                    const Text(
+                    Text(
                       'Available Databases',
-                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                      style: TextStyle(color: CyberTheme.textSecondary(context), fontSize: 12),
                     ),
                     const SizedBox(height: 8),
                     Wrap(
@@ -233,15 +244,18 @@ class _DataScreenState extends State<DataScreen> {
                                 name.length > 20
                                     ? '${name.substring(0, 20)}...'
                                     : name,
-                                style: const TextStyle(fontSize: 11),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: CyberTheme.textPrimary(context),
+                                ),
                               ),
                               onPressed: () {
                                 _dbNameController.text = name;
                                 _fetchData();
                               },
-                              backgroundColor: const Color(0xFF1D1E33),
+                              backgroundColor: CyberTheme.card(context),
                               side: BorderSide(
-                                color: const Color(0xFF00D9FF).withOpacity(0.3),
+                                color: CyberTheme.primary(context).withOpacity(0.3),
                               ),
                             ),
                           )
@@ -254,17 +268,10 @@ class _DataScreenState extends State<DataScreen> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          const Color(0xFF1D1E33),
-                          const Color(0xFF1D1E33).withOpacity(0.8),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
+                      color: CyberTheme.card(context),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: const Color(0xFF00D9FF).withOpacity(0.3),
+                        color: CyberTheme.border(context),
                       ),
                     ),
                     child: Form(
@@ -277,22 +284,20 @@ class _DataScreenState extends State<DataScreen> {
                               Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: const Color(
-                                    0xFF00D9FF,
-                                  ).withOpacity(0.2),
+                                  color: CyberTheme.primary(context).withOpacity(0.2),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
-                                child: const Icon(
+                                child: Icon(
                                   Icons.search,
-                                  color: Color(0xFF00D9FF),
+                                  color: CyberTheme.primary(context),
                                   size: 20,
                                 ),
                               ),
                               const SizedBox(width: 12),
-                              const Text(
+                              Text(
                                 'Query Database',
                                 style: TextStyle(
-                                  color: Colors.white,
+                                  color: CyberTheme.textPrimary(context),
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -302,26 +307,26 @@ class _DataScreenState extends State<DataScreen> {
                           const SizedBox(height: 16),
                           TextFormField(
                             controller: _dbNameController,
-                            style: const TextStyle(color: Colors.white),
+                            style: TextStyle(color: CyberTheme.textPrimary(context)),
                             decoration: InputDecoration(
                               labelText: 'Database Name',
                               labelStyle: TextStyle(
-                                color: Colors.white.withOpacity(0.7),
+                                color: CyberTheme.textSecondary(context),
                               ),
                               hintText: 'Enter db name (e.g., mydb-<pubkey>)',
                               hintStyle: TextStyle(
-                                color: Colors.white.withOpacity(0.3),
+                                color: CyberTheme.textDim(context),
                               ),
                               filled: true,
-                              fillColor: const Color(0xFF0A0E21),
+                              fillColor: CyberTheme.background(context),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide.none,
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFF00D9FF),
+                                borderSide: BorderSide(
+                                  color: CyberTheme.primary(context),
                                 ),
                               ),
                             ),
@@ -339,8 +344,8 @@ class _DataScreenState extends State<DataScreen> {
                                 child: ElevatedButton.icon(
                                   onPressed: _isLoading ? null : _fetchData,
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF00D9FF),
-                                    foregroundColor: Colors.black,
+                                    backgroundColor: CyberTheme.primary(context),
+                                    foregroundColor: CyberTheme.isDark(context) ? Colors.black : Colors.white,
                                     padding: const EdgeInsets.symmetric(
                                       vertical: 14,
                                     ),
@@ -367,8 +372,8 @@ class _DataScreenState extends State<DataScreen> {
                               ElevatedButton(
                                 onPressed: _isLoading ? null : _fetchAllData,
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF1D1E33),
-                                  foregroundColor: const Color(0xFF00D9FF),
+                                  backgroundColor: CyberTheme.card(context),
+                                  foregroundColor: CyberTheme.primary(context),
                                   padding: const EdgeInsets.symmetric(
                                     vertical: 14,
                                     horizontal: 16,
@@ -377,9 +382,7 @@ class _DataScreenState extends State<DataScreen> {
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   side: BorderSide(
-                                    color: const Color(
-                                      0xFF00D9FF,
-                                    ).withOpacity(0.5),
+                                    color: CyberTheme.primary(context).withOpacity(0.5),
                                   ),
                                 ),
                                 child: const Text('All'),
@@ -423,8 +426,8 @@ class _DataScreenState extends State<DataScreen> {
                     const SizedBox(height: 16),
                     Text(
                       'Results (${_results.length})',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: CyberTheme.textPrimary(context),
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
@@ -442,14 +445,14 @@ class _DataScreenState extends State<DataScreen> {
                           Icon(
                             Icons.storage_outlined,
                             size: 64,
-                            color: Colors.white.withOpacity(0.3),
+                            color: CyberTheme.textDim(context),
                           ),
                           const SizedBox(height: 16),
                           Text(
                             'Enter a database name to query data\nor tap "All" to see all stored data',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.5),
+                              color: CyberTheme.textSecondary(context),
                               fontSize: 14,
                             ),
                           ),
@@ -466,13 +469,25 @@ class _DataScreenState extends State<DataScreen> {
   }
 
   Widget _buildResultCard(DbOperation op) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDarkMode 
+        ? const Color(0xFF1D1E33) 
+        : CyberColorsLight.cardBackground;
+    final textColor = isDarkMode ? Colors.white : CyberColorsLight.textPrimary;
+    final secondaryTextColor = isDarkMode 
+        ? Colors.white.withOpacity(0.4) 
+        : CyberColorsLight.textSecondary;
+    final borderColor = isDarkMode 
+        ? Colors.white.withOpacity(0.1) 
+        : CyberColorsLight.border;
+    
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1D1E33),
+        color: cardColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -513,7 +528,7 @@ class _DataScreenState extends State<DataScreen> {
                   );
                 },
                 icon: const Icon(Icons.copy, size: 16),
-                color: Colors.white.withOpacity(0.5),
+                color: secondaryTextColor,
                 constraints: const BoxConstraints(),
                 padding: const EdgeInsets.all(4),
                 tooltip: 'Copy value',
@@ -535,7 +550,7 @@ class _DataScreenState extends State<DataScreen> {
                 ? '${op.value.substring(0, 200)}...'
                 : op.value,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.8),
+              color: textColor.withOpacity(0.8),
               fontSize: 13,
               fontFamily: 'monospace',
             ),
@@ -546,7 +561,7 @@ class _DataScreenState extends State<DataScreen> {
               Icon(
                 Icons.storage,
                 size: 12,
-                color: Colors.white.withOpacity(0.4),
+                color: secondaryTextColor,
               ),
               const SizedBox(width: 4),
               Expanded(
@@ -555,7 +570,7 @@ class _DataScreenState extends State<DataScreen> {
                       ? '${op.dbName.substring(0, 40)}...'
                       : op.dbName,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.4),
+                    color: secondaryTextColor,
                     fontSize: 11,
                   ),
                   overflow: TextOverflow.ellipsis,
