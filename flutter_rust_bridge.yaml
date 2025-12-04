@@ -1,0 +1,10 @@
+rust_input: crate::api
+rust_root: rust/
+dart_output: lib/src/rust
+c_output: ios/Runner/bridge_generated.h
+extra_headers: |
+  #import <Foundation/Foundation.h>
+llvm_path:
+  - /opt/homebrew/opt/llvm
+  - /usr/local/opt/llvm
+full_dep: true
