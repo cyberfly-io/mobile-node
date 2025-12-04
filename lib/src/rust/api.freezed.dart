@@ -16,6 +16,209 @@ final _privateConstructorUsedError = UnsupportedError(
 );
 
 /// @nodoc
+mixin _$DbEntryDto {
+  String get dbName => throw _privateConstructorUsedError;
+  String get key => throw _privateConstructorUsedError;
+  String get value => throw _privateConstructorUsedError;
+  Uint8List get valueBytes => throw _privateConstructorUsedError;
+
+  /// Create a copy of DbEntryDto
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  $DbEntryDtoCopyWith<DbEntryDto> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class $DbEntryDtoCopyWith<$Res> {
+  factory $DbEntryDtoCopyWith(
+    DbEntryDto value,
+    $Res Function(DbEntryDto) then,
+  ) = _$DbEntryDtoCopyWithImpl<$Res, DbEntryDto>;
+  @useResult
+  $Res call({String dbName, String key, String value, Uint8List valueBytes});
+}
+
+/// @nodoc
+class _$DbEntryDtoCopyWithImpl<$Res, $Val extends DbEntryDto>
+    implements $DbEntryDtoCopyWith<$Res> {
+  _$DbEntryDtoCopyWithImpl(this._value, this._then);
+
+  // ignore: unused_field
+  final $Val _value;
+  // ignore: unused_field
+  final $Res Function($Val) _then;
+
+  /// Create a copy of DbEntryDto
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? dbName = null,
+    Object? key = null,
+    Object? value = null,
+    Object? valueBytes = null,
+  }) {
+    return _then(
+      _value.copyWith(
+            dbName: null == dbName
+                ? _value.dbName
+                : dbName // ignore: cast_nullable_to_non_nullable
+                      as String,
+            key: null == key
+                ? _value.key
+                : key // ignore: cast_nullable_to_non_nullable
+                      as String,
+            value: null == value
+                ? _value.value
+                : value // ignore: cast_nullable_to_non_nullable
+                      as String,
+            valueBytes: null == valueBytes
+                ? _value.valueBytes
+                : valueBytes // ignore: cast_nullable_to_non_nullable
+                      as Uint8List,
+          )
+          as $Val,
+    );
+  }
+}
+
+/// @nodoc
+abstract class _$$DbEntryDtoImplCopyWith<$Res>
+    implements $DbEntryDtoCopyWith<$Res> {
+  factory _$$DbEntryDtoImplCopyWith(
+    _$DbEntryDtoImpl value,
+    $Res Function(_$DbEntryDtoImpl) then,
+  ) = __$$DbEntryDtoImplCopyWithImpl<$Res>;
+  @override
+  @useResult
+  $Res call({String dbName, String key, String value, Uint8List valueBytes});
+}
+
+/// @nodoc
+class __$$DbEntryDtoImplCopyWithImpl<$Res>
+    extends _$DbEntryDtoCopyWithImpl<$Res, _$DbEntryDtoImpl>
+    implements _$$DbEntryDtoImplCopyWith<$Res> {
+  __$$DbEntryDtoImplCopyWithImpl(
+    _$DbEntryDtoImpl _value,
+    $Res Function(_$DbEntryDtoImpl) _then,
+  ) : super(_value, _then);
+
+  /// Create a copy of DbEntryDto
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? dbName = null,
+    Object? key = null,
+    Object? value = null,
+    Object? valueBytes = null,
+  }) {
+    return _then(
+      _$DbEntryDtoImpl(
+        dbName: null == dbName
+            ? _value.dbName
+            : dbName // ignore: cast_nullable_to_non_nullable
+                  as String,
+        key: null == key
+            ? _value.key
+            : key // ignore: cast_nullable_to_non_nullable
+                  as String,
+        value: null == value
+            ? _value.value
+            : value // ignore: cast_nullable_to_non_nullable
+                  as String,
+        valueBytes: null == valueBytes
+            ? _value.valueBytes
+            : valueBytes // ignore: cast_nullable_to_non_nullable
+                  as Uint8List,
+      ),
+    );
+  }
+}
+
+/// @nodoc
+
+class _$DbEntryDtoImpl implements _DbEntryDto {
+  const _$DbEntryDtoImpl({
+    required this.dbName,
+    required this.key,
+    required this.value,
+    required this.valueBytes,
+  });
+
+  @override
+  final String dbName;
+  @override
+  final String key;
+  @override
+  final String value;
+  @override
+  final Uint8List valueBytes;
+
+  @override
+  String toString() {
+    return 'DbEntryDto(dbName: $dbName, key: $key, value: $value, valueBytes: $valueBytes)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$DbEntryDtoImpl &&
+            (identical(other.dbName, dbName) || other.dbName == dbName) &&
+            (identical(other.key, key) || other.key == key) &&
+            (identical(other.value, value) || other.value == value) &&
+            const DeepCollectionEquality().equals(
+              other.valueBytes,
+              valueBytes,
+            ));
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    runtimeType,
+    dbName,
+    key,
+    value,
+    const DeepCollectionEquality().hash(valueBytes),
+  );
+
+  /// Create a copy of DbEntryDto
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$DbEntryDtoImplCopyWith<_$DbEntryDtoImpl> get copyWith =>
+      __$$DbEntryDtoImplCopyWithImpl<_$DbEntryDtoImpl>(this, _$identity);
+}
+
+abstract class _DbEntryDto implements DbEntryDto {
+  const factory _DbEntryDto({
+    required final String dbName,
+    required final String key,
+    required final String value,
+    required final Uint8List valueBytes,
+  }) = _$DbEntryDtoImpl;
+
+  @override
+  String get dbName;
+  @override
+  String get key;
+  @override
+  String get value;
+  @override
+  Uint8List get valueBytes;
+
+  /// Create a copy of DbEntryDto
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$DbEntryDtoImplCopyWith<_$DbEntryDtoImpl> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
 mixin _$KeyPairDto {
   String get publicKey => throw _privateConstructorUsedError;
   String get secretKey => throw _privateConstructorUsedError;

@@ -359,3 +359,47 @@ pub fn validate_timestamp(timestamp: i64) -> Result<bool, String> {
 pub fn greet(name: String) -> String {
     format!("Hello, {}! From Cyberfly Rust.", name)
 }
+
+/// Database entry for Flutter
+#[frb(dart_metadata=("freezed"))]
+pub struct DbEntryDto {
+    pub db_name: String,
+    pub key: String,
+    pub value: String,
+    pub value_bytes: Vec<u8>,
+}
+
+/// List all databases in storage
+#[frb(sync)]
+pub fn list_databases() -> Result<Vec<String>, String> {
+    let node = get_node()?;
+    node.list_databases().map_err(|e| e.to_string())
+}
+
+/// List all keys in a specific database
+#[frb(sync)]
+pub fn list_keys(db_name: String) -> Result<Vec<String>, String> {
+    let node = get_node()?;
+    node.list_keys(&db_name).map_err(|e| e.to_string())
+}
+
+/// Get all entries from a specific database
+#[frb]
+pub async fn get_all_entries(db_name: String) -> Result<Vec<DbEntryDto>, String> {
+    let node = get_node()?;
+    node.get_all_entries(&db_name).await.map_err(|e| e.to_string())
+}
+
+/// Get all entries from all databases
+#[frb]
+pub async fn get_all_data() -> Result<Vec<DbEntryDto>, String> {
+    let node = get_node()?;
+    node.get_all_data().await.map_err(|e| e.to_string())
+}
+
+/// Delete a key from a database
+#[frb]
+pub async fn delete_data(db_name: String, key: String) -> Result<(), String> {
+    let node = get_node()?;
+    node.delete_data(&db_name, &key).await.map_err(|e| e.to_string())
+}

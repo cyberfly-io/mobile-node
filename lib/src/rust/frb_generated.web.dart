@@ -36,6 +36,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BigInt dco_decode_box_autoadd_u_64(dynamic raw);
 
   @protected
+  DbEntryDto dco_decode_db_entry_dto(dynamic raw);
+
+  @protected
   PlatformInt64 dco_decode_i_64(dynamic raw);
 
   @protected
@@ -43,6 +46,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<String> dco_decode_list_String(dynamic raw);
+
+  @protected
+  List<DbEntryDto> dco_decode_list_db_entry_dto(dynamic raw);
 
   @protected
   List<PeerInfoDto> dco_decode_list_peer_info_dto(dynamic raw);
@@ -105,6 +111,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BigInt sse_decode_box_autoadd_u_64(SseDeserializer deserializer);
 
   @protected
+  DbEntryDto sse_decode_db_entry_dto(SseDeserializer deserializer);
+
+  @protected
   PlatformInt64 sse_decode_i_64(SseDeserializer deserializer);
 
   @protected
@@ -112,6 +121,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<String> sse_decode_list_String(SseDeserializer deserializer);
+
+  @protected
+  List<DbEntryDto> sse_decode_list_db_entry_dto(SseDeserializer deserializer);
 
   @protected
   List<PeerInfoDto> sse_decode_list_peer_info_dto(SseDeserializer deserializer);
@@ -186,6 +198,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   }
 
   @protected
+  JSAny cst_encode_db_entry_dto(DbEntryDto raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [
+      cst_encode_String(raw.dbName),
+      cst_encode_String(raw.key),
+      cst_encode_String(raw.value),
+      cst_encode_list_prim_u_8_strict(raw.valueBytes),
+    ].jsify()!;
+  }
+
+  @protected
   JSAny cst_encode_i_64(PlatformInt64 raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return castNativeBigInt(raw);
@@ -204,6 +227,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   JSAny cst_encode_list_String(List<String> raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return raw.map(cst_encode_String).toList().jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_list_db_entry_dto(List<DbEntryDto> raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw.map(cst_encode_db_entry_dto).toList().jsify()!;
   }
 
   @protected
@@ -336,6 +365,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_box_autoadd_u_64(BigInt self, SseSerializer serializer);
 
   @protected
+  void sse_encode_db_entry_dto(DbEntryDto self, SseSerializer serializer);
+
+  @protected
   void sse_encode_i_64(PlatformInt64 self, SseSerializer serializer);
 
   @protected
@@ -343,6 +375,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_list_String(List<String> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_db_entry_dto(
+    List<DbEntryDto> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_peer_info_dto(
@@ -413,6 +451,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 class RustLibWire implements BaseWire {
   RustLibWire.fromExternalLibrary(ExternalLibrary lib);
 
+  void wire__crate__api__delete_data(
+    NativePortType port_,
+    String db_name,
+    String key,
+  ) => wasmModule.wire__crate__api__delete_data(port_, db_name, key);
+
   JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
   wire__crate__api__extract_name_from_db(String db_name) =>
       wasmModule.wire__crate__api__extract_name_from_db(db_name);
@@ -424,6 +468,14 @@ class RustLibWire implements BaseWire {
   JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
   wire__crate__api__generate_keypair() =>
       wasmModule.wire__crate__api__generate_keypair();
+
+  void wire__crate__api__get_all_data(NativePortType port_) =>
+      wasmModule.wire__crate__api__get_all_data(port_);
+
+  void wire__crate__api__get_all_entries(
+    NativePortType port_,
+    String db_name,
+  ) => wasmModule.wire__crate__api__get_all_entries(port_, db_name);
 
   void wire__crate__api__get_data(
     NativePortType port_,
@@ -453,6 +505,14 @@ class RustLibWire implements BaseWire {
   JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
   wire__crate__api__is_node_running() =>
       wasmModule.wire__crate__api__is_node_running();
+
+  JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__list_databases() =>
+      wasmModule.wire__crate__api__list_databases();
+
+  JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__list_keys(String db_name) =>
+      wasmModule.wire__crate__api__list_keys(db_name);
 
   void wire__crate__api__request_sync(
     NativePortType port_,
@@ -546,6 +606,12 @@ external RustLibWasmModule get wasmModule;
 @JS()
 @anonymous
 extension type RustLibWasmModule._(JSObject _) implements JSObject {
+  external void wire__crate__api__delete_data(
+    NativePortType port_,
+    String db_name,
+    String key,
+  );
+
   external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
   wire__crate__api__extract_name_from_db(String db_name);
 
@@ -554,6 +620,13 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
 
   external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
   wire__crate__api__generate_keypair();
+
+  external void wire__crate__api__get_all_data(NativePortType port_);
+
+  external void wire__crate__api__get_all_entries(
+    NativePortType port_,
+    String db_name,
+  );
 
   external void wire__crate__api__get_data(
     NativePortType port_,
@@ -578,6 +651,12 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
 
   external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
   wire__crate__api__is_node_running();
+
+  external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__list_databases();
+
+  external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__list_keys(String db_name);
 
   external void wire__crate__api__request_sync(
     NativePortType port_,

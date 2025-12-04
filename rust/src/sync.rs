@@ -64,6 +64,14 @@ pub struct SignedOperation {
     pub score: Option<f64>,
     /// Optional JSON path
     pub json_path: Option<String>,
+    /// Optional stream fields (JSON) - for Stream store type
+    pub stream_fields: Option<String>,
+    /// Optional timestamp for TimeSeries
+    pub ts_timestamp: Option<String>,
+    /// Optional longitude for Geo
+    pub longitude: Option<f64>,
+    /// Optional latitude for Geo
+    pub latitude: Option<f64>,
     /// Public key of the signer (hex)
     pub public_key: String,
     /// Ed25519 signature (hex)
@@ -160,6 +168,10 @@ impl SignedOperation {
             field: None,
             score: None,
             json_path: None,
+            stream_fields: None,
+            ts_timestamp: None,
+            longitude: None,
+            latitude: None,
             public_key,
             signature,
         }
@@ -191,6 +203,10 @@ impl SignedOperation {
             field: None,
             score: None,
             json_path: None,
+            stream_fields: None,
+            ts_timestamp: None,
+            longitude: None,
+            latitude: None,
             public_key,
             signature,
         }

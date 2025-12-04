@@ -34,6 +34,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BigInt dco_decode_box_autoadd_u_64(dynamic raw);
 
   @protected
+  DbEntryDto dco_decode_db_entry_dto(dynamic raw);
+
+  @protected
   PlatformInt64 dco_decode_i_64(dynamic raw);
 
   @protected
@@ -41,6 +44,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<String> dco_decode_list_String(dynamic raw);
+
+  @protected
+  List<DbEntryDto> dco_decode_list_db_entry_dto(dynamic raw);
 
   @protected
   List<PeerInfoDto> dco_decode_list_peer_info_dto(dynamic raw);
@@ -103,6 +109,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BigInt sse_decode_box_autoadd_u_64(SseDeserializer deserializer);
 
   @protected
+  DbEntryDto sse_decode_db_entry_dto(SseDeserializer deserializer);
+
+  @protected
   PlatformInt64 sse_decode_i_64(SseDeserializer deserializer);
 
   @protected
@@ -110,6 +119,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<String> sse_decode_list_String(SseDeserializer deserializer);
+
+  @protected
+  List<DbEntryDto> sse_decode_list_db_entry_dto(SseDeserializer deserializer);
 
   @protected
   List<PeerInfoDto> sse_decode_list_peer_info_dto(SseDeserializer deserializer);
@@ -204,6 +216,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   }
 
   @protected
+  ffi.Pointer<wire_cst_list_db_entry_dto> cst_encode_list_db_entry_dto(
+    List<DbEntryDto> raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    final ans = wire.cst_new_list_db_entry_dto(raw.length);
+    for (var i = 0; i < raw.length; ++i) {
+      cst_api_fill_to_wire_db_entry_dto(raw[i], ans.ref.ptr[i]);
+    }
+    return ans;
+  }
+
+  @protected
   ffi.Pointer<wire_cst_list_peer_info_dto> cst_encode_list_peer_info_dto(
     List<PeerInfoDto> raw,
   ) {
@@ -282,6 +306,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     ffi.Pointer<wire_cst_node_info> wireObj,
   ) {
     cst_api_fill_to_wire_node_info(apiObj, wireObj.ref);
+  }
+
+  @protected
+  void cst_api_fill_to_wire_db_entry_dto(
+    DbEntryDto apiObj,
+    wire_cst_db_entry_dto wireObj,
+  ) {
+    wireObj.db_name = cst_encode_String(apiObj.dbName);
+    wireObj.key = cst_encode_String(apiObj.key);
+    wireObj.value = cst_encode_String(apiObj.value);
+    wireObj.value_bytes = cst_encode_list_prim_u_8_strict(apiObj.valueBytes);
   }
 
   @protected
@@ -373,6 +408,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_box_autoadd_u_64(BigInt self, SseSerializer serializer);
 
   @protected
+  void sse_encode_db_entry_dto(DbEntryDto self, SseSerializer serializer);
+
+  @protected
   void sse_encode_i_64(PlatformInt64 self, SseSerializer serializer);
 
   @protected
@@ -380,6 +418,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_list_String(List<String> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_db_entry_dto(
+    List<DbEntryDto> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_peer_info_dto(
@@ -482,6 +526,33 @@ class RustLibWire implements BaseWire {
   late final _store_dart_post_cobject = _store_dart_post_cobjectPtr
       .asFunction<void Function(DartPostCObjectFnType)>();
 
+  void wire__crate__api__delete_data(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> db_name,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> key,
+  ) {
+    return _wire__crate__api__delete_data(port_, db_name, key);
+  }
+
+  late final _wire__crate__api__delete_dataPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+          )
+        >
+      >('frbgen_cyberfly_mobile_node_wire__crate__api__delete_data');
+  late final _wire__crate__api__delete_data = _wire__crate__api__delete_dataPtr
+      .asFunction<
+        void Function(
+          int,
+          ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+          ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+        )
+      >();
+
   WireSyncRust2DartDco wire__crate__api__extract_name_from_db(
     ffi.Pointer<wire_cst_list_prim_u_8_strict> db_name,
   ) {
@@ -540,6 +611,39 @@ class RustLibWire implements BaseWire {
   late final _wire__crate__api__generate_keypair =
       _wire__crate__api__generate_keypairPtr
           .asFunction<WireSyncRust2DartDco Function()>();
+
+  void wire__crate__api__get_all_data(int port_) {
+    return _wire__crate__api__get_all_data(port_);
+  }
+
+  late final _wire__crate__api__get_all_dataPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
+        'frbgen_cyberfly_mobile_node_wire__crate__api__get_all_data',
+      );
+  late final _wire__crate__api__get_all_data =
+      _wire__crate__api__get_all_dataPtr.asFunction<void Function(int)>();
+
+  void wire__crate__api__get_all_entries(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> db_name,
+  ) {
+    return _wire__crate__api__get_all_entries(port_, db_name);
+  }
+
+  late final _wire__crate__api__get_all_entriesPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+          )
+        >
+      >('frbgen_cyberfly_mobile_node_wire__crate__api__get_all_entries');
+  late final _wire__crate__api__get_all_entries =
+      _wire__crate__api__get_all_entriesPtr
+          .asFunction<
+            void Function(int, ffi.Pointer<wire_cst_list_prim_u_8_strict>)
+          >();
 
   void wire__crate__api__get_data(
     int port_,
@@ -647,6 +751,39 @@ class RustLibWire implements BaseWire {
   late final _wire__crate__api__is_node_running =
       _wire__crate__api__is_node_runningPtr
           .asFunction<WireSyncRust2DartDco Function()>();
+
+  WireSyncRust2DartDco wire__crate__api__list_databases() {
+    return _wire__crate__api__list_databases();
+  }
+
+  late final _wire__crate__api__list_databasesPtr =
+      _lookup<ffi.NativeFunction<WireSyncRust2DartDco Function()>>(
+        'frbgen_cyberfly_mobile_node_wire__crate__api__list_databases',
+      );
+  late final _wire__crate__api__list_databases =
+      _wire__crate__api__list_databasesPtr
+          .asFunction<WireSyncRust2DartDco Function()>();
+
+  WireSyncRust2DartDco wire__crate__api__list_keys(
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> db_name,
+  ) {
+    return _wire__crate__api__list_keys(db_name);
+  }
+
+  late final _wire__crate__api__list_keysPtr =
+      _lookup<
+        ffi.NativeFunction<
+          WireSyncRust2DartDco Function(
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+          )
+        >
+      >('frbgen_cyberfly_mobile_node_wire__crate__api__list_keys');
+  late final _wire__crate__api__list_keys = _wire__crate__api__list_keysPtr
+      .asFunction<
+        WireSyncRust2DartDco Function(
+          ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+        )
+      >();
 
   void wire__crate__api__request_sync(
     int port_,
@@ -978,6 +1115,19 @@ class RustLibWire implements BaseWire {
   late final _cst_new_list_String = _cst_new_list_StringPtr
       .asFunction<ffi.Pointer<wire_cst_list_String> Function(int)>();
 
+  ffi.Pointer<wire_cst_list_db_entry_dto> cst_new_list_db_entry_dto(int len) {
+    return _cst_new_list_db_entry_dto(len);
+  }
+
+  late final _cst_new_list_db_entry_dtoPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<wire_cst_list_db_entry_dto> Function(ffi.Int32)
+        >
+      >('frbgen_cyberfly_mobile_node_cst_new_list_db_entry_dto');
+  late final _cst_new_list_db_entry_dto = _cst_new_list_db_entry_dtoPtr
+      .asFunction<ffi.Pointer<wire_cst_list_db_entry_dto> Function(int)>();
+
   ffi.Pointer<wire_cst_list_peer_info_dto> cst_new_list_peer_info_dto(int len) {
     return _cst_new_list_peer_info_dto(len);
   }
@@ -1070,6 +1220,23 @@ final class wire_cst_node_info extends ffi.Struct {
 
   @ffi.Bool()
   external bool is_running;
+}
+
+final class wire_cst_db_entry_dto extends ffi.Struct {
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> db_name;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> key;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> value;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> value_bytes;
+}
+
+final class wire_cst_list_db_entry_dto extends ffi.Struct {
+  external ffi.Pointer<wire_cst_db_entry_dto> ptr;
+
+  @ffi.Int32()
+  external int len;
 }
 
 final class wire_cst_peer_info_dto extends ffi.Struct {

@@ -135,6 +135,36 @@ bool validateTimestamp({required PlatformInt64 timestamp}) =>
 String greet({required String name}) =>
     RustLib.instance.api.crateApiGreet(name: name);
 
+/// List all databases in storage
+List<String> listDatabases() => RustLib.instance.api.crateApiListDatabases();
+
+/// List all keys in a specific database
+List<String> listKeys({required String dbName}) =>
+    RustLib.instance.api.crateApiListKeys(dbName: dbName);
+
+/// Get all entries from a specific database
+Future<List<DbEntryDto>> getAllEntries({required String dbName}) =>
+    RustLib.instance.api.crateApiGetAllEntries(dbName: dbName);
+
+/// Get all entries from all databases
+Future<List<DbEntryDto>> getAllData() =>
+    RustLib.instance.api.crateApiGetAllData();
+
+/// Delete a key from a database
+Future<void> deleteData({required String dbName, required String key}) =>
+    RustLib.instance.api.crateApiDeleteData(dbName: dbName, key: key);
+
+/// Database entry for Flutter
+@freezed
+sealed class DbEntryDto with _$DbEntryDto {
+  const factory DbEntryDto({
+    required String dbName,
+    required String key,
+    required String value,
+    required Uint8List valueBytes,
+  }) = _DbEntryDto;
+}
+
 /// Keypair for signing
 @freezed
 sealed class KeyPairDto with _$KeyPairDto {

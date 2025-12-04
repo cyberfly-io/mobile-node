@@ -55,6 +55,18 @@ typedef struct wire_cst_node_info {
   bool is_running;
 } wire_cst_node_info;
 
+typedef struct wire_cst_db_entry_dto {
+  struct wire_cst_list_prim_u_8_strict *db_name;
+  struct wire_cst_list_prim_u_8_strict *key;
+  struct wire_cst_list_prim_u_8_strict *value;
+  struct wire_cst_list_prim_u_8_strict *value_bytes;
+} wire_cst_db_entry_dto;
+
+typedef struct wire_cst_list_db_entry_dto {
+  struct wire_cst_db_entry_dto *ptr;
+  int32_t len;
+} wire_cst_list_db_entry_dto;
+
 typedef struct wire_cst_peer_info_dto {
   struct wire_cst_list_prim_u_8_strict *node_id;
   struct wire_cst_list_prim_u_8_strict *public_key;
@@ -89,12 +101,21 @@ typedef struct wire_cst_node_status_dto {
   uint64_t latency_responses_received;
 } wire_cst_node_status_dto;
 
+void frbgen_cyberfly_mobile_node_wire__crate__api__delete_data(int64_t port_,
+                                                               struct wire_cst_list_prim_u_8_strict *db_name,
+                                                               struct wire_cst_list_prim_u_8_strict *key);
+
 WireSyncRust2DartDco frbgen_cyberfly_mobile_node_wire__crate__api__extract_name_from_db(struct wire_cst_list_prim_u_8_strict *db_name);
 
 WireSyncRust2DartDco frbgen_cyberfly_mobile_node_wire__crate__api__generate_db_name(struct wire_cst_list_prim_u_8_strict *name,
                                                                                     struct wire_cst_list_prim_u_8_strict *public_key_hex);
 
 WireSyncRust2DartDco frbgen_cyberfly_mobile_node_wire__crate__api__generate_keypair(void);
+
+void frbgen_cyberfly_mobile_node_wire__crate__api__get_all_data(int64_t port_);
+
+void frbgen_cyberfly_mobile_node_wire__crate__api__get_all_entries(int64_t port_,
+                                                                   struct wire_cst_list_prim_u_8_strict *db_name);
 
 void frbgen_cyberfly_mobile_node_wire__crate__api__get_data(int64_t port_,
                                                             struct wire_cst_list_prim_u_8_strict *db_name,
@@ -111,6 +132,10 @@ WireSyncRust2DartDco frbgen_cyberfly_mobile_node_wire__crate__api__greet(struct 
 WireSyncRust2DartDco frbgen_cyberfly_mobile_node_wire__crate__api__init_logging(void);
 
 WireSyncRust2DartDco frbgen_cyberfly_mobile_node_wire__crate__api__is_node_running(void);
+
+WireSyncRust2DartDco frbgen_cyberfly_mobile_node_wire__crate__api__list_databases(void);
+
+WireSyncRust2DartDco frbgen_cyberfly_mobile_node_wire__crate__api__list_keys(struct wire_cst_list_prim_u_8_strict *db_name);
 
 void frbgen_cyberfly_mobile_node_wire__crate__api__request_sync(int64_t port_,
                                                                 int64_t *since_timestamp);
@@ -162,6 +187,8 @@ uint64_t *frbgen_cyberfly_mobile_node_cst_new_box_autoadd_u_64(uint64_t value);
 
 struct wire_cst_list_String *frbgen_cyberfly_mobile_node_cst_new_list_String(int32_t len);
 
+struct wire_cst_list_db_entry_dto *frbgen_cyberfly_mobile_node_cst_new_list_db_entry_dto(int32_t len);
+
 struct wire_cst_list_peer_info_dto *frbgen_cyberfly_mobile_node_cst_new_list_peer_info_dto(int32_t len);
 
 struct wire_cst_list_prim_u_8_loose *frbgen_cyberfly_mobile_node_cst_new_list_prim_u_8_loose(int32_t len);
@@ -173,12 +200,16 @@ static int64_t dummy_method_to_enforce_bundling(void) {
     dummy_var ^= ((int64_t) (void*) frbgen_cyberfly_mobile_node_cst_new_box_autoadd_node_info);
     dummy_var ^= ((int64_t) (void*) frbgen_cyberfly_mobile_node_cst_new_box_autoadd_u_64);
     dummy_var ^= ((int64_t) (void*) frbgen_cyberfly_mobile_node_cst_new_list_String);
+    dummy_var ^= ((int64_t) (void*) frbgen_cyberfly_mobile_node_cst_new_list_db_entry_dto);
     dummy_var ^= ((int64_t) (void*) frbgen_cyberfly_mobile_node_cst_new_list_peer_info_dto);
     dummy_var ^= ((int64_t) (void*) frbgen_cyberfly_mobile_node_cst_new_list_prim_u_8_loose);
     dummy_var ^= ((int64_t) (void*) frbgen_cyberfly_mobile_node_cst_new_list_prim_u_8_strict);
+    dummy_var ^= ((int64_t) (void*) frbgen_cyberfly_mobile_node_wire__crate__api__delete_data);
     dummy_var ^= ((int64_t) (void*) frbgen_cyberfly_mobile_node_wire__crate__api__extract_name_from_db);
     dummy_var ^= ((int64_t) (void*) frbgen_cyberfly_mobile_node_wire__crate__api__generate_db_name);
     dummy_var ^= ((int64_t) (void*) frbgen_cyberfly_mobile_node_wire__crate__api__generate_keypair);
+    dummy_var ^= ((int64_t) (void*) frbgen_cyberfly_mobile_node_wire__crate__api__get_all_data);
+    dummy_var ^= ((int64_t) (void*) frbgen_cyberfly_mobile_node_wire__crate__api__get_all_entries);
     dummy_var ^= ((int64_t) (void*) frbgen_cyberfly_mobile_node_wire__crate__api__get_data);
     dummy_var ^= ((int64_t) (void*) frbgen_cyberfly_mobile_node_wire__crate__api__get_node_info);
     dummy_var ^= ((int64_t) (void*) frbgen_cyberfly_mobile_node_wire__crate__api__get_node_status);
@@ -186,6 +217,8 @@ static int64_t dummy_method_to_enforce_bundling(void) {
     dummy_var ^= ((int64_t) (void*) frbgen_cyberfly_mobile_node_wire__crate__api__greet);
     dummy_var ^= ((int64_t) (void*) frbgen_cyberfly_mobile_node_wire__crate__api__init_logging);
     dummy_var ^= ((int64_t) (void*) frbgen_cyberfly_mobile_node_wire__crate__api__is_node_running);
+    dummy_var ^= ((int64_t) (void*) frbgen_cyberfly_mobile_node_wire__crate__api__list_databases);
+    dummy_var ^= ((int64_t) (void*) frbgen_cyberfly_mobile_node_wire__crate__api__list_keys);
     dummy_var ^= ((int64_t) (void*) frbgen_cyberfly_mobile_node_wire__crate__api__request_sync);
     dummy_var ^= ((int64_t) (void*) frbgen_cyberfly_mobile_node_wire__crate__api__send_gossip);
     dummy_var ^= ((int64_t) (void*) frbgen_cyberfly_mobile_node_wire__crate__api__send_latency_request);

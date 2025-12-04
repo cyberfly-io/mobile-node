@@ -64,7 +64,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.11.1';
 
   @override
-  int get rustContentHash => 512408474;
+  int get rustContentHash => 1214999526;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -75,6 +75,11 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 }
 
 abstract class RustLibApi extends BaseApi {
+  Future<void> crateApiDeleteData({
+    required String dbName,
+    required String key,
+  });
+
   String? crateApiExtractNameFromDb({required String dbName});
 
   String crateApiGenerateDbName({
@@ -83,6 +88,10 @@ abstract class RustLibApi extends BaseApi {
   });
 
   KeyPairDto crateApiGenerateKeypair();
+
+  Future<List<DbEntryDto>> crateApiGetAllData();
+
+  Future<List<DbEntryDto>> crateApiGetAllEntries({required String dbName});
 
   Future<Uint8List?> crateApiGetData({
     required String dbName,
@@ -100,6 +109,10 @@ abstract class RustLibApi extends BaseApi {
   void crateApiInitLogging();
 
   bool crateApiIsNodeRunning();
+
+  List<String> crateApiListDatabases();
+
+  List<String> crateApiListKeys({required String dbName});
 
   Future<void> crateApiRequestSync({PlatformInt64? sinceTimestamp});
 
@@ -159,6 +172,34 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required super.generalizedFrbRustBinding,
     required super.portManager,
   });
+
+  @override
+  Future<void> crateApiDeleteData({
+    required String dbName,
+    required String key,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_String(dbName);
+          var arg1 = cst_encode_String(key);
+          return wire.wire__crate__api__delete_data(port_, arg0, arg1);
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_unit,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiDeleteDataConstMeta,
+        argValues: [dbName, key],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiDeleteDataConstMeta => const TaskConstMeta(
+    debugName: "delete_data",
+    argNames: ["dbName", "key"],
+  );
 
   @override
   String? crateApiExtractNameFromDb({required String dbName}) {
@@ -232,6 +273,49 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiGenerateKeypairConstMeta =>
       const TaskConstMeta(debugName: "generate_keypair", argNames: []);
+
+  @override
+  Future<List<DbEntryDto>> crateApiGetAllData() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          return wire.wire__crate__api__get_all_data(port_);
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_db_entry_dto,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiGetAllDataConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiGetAllDataConstMeta =>
+      const TaskConstMeta(debugName: "get_all_data", argNames: []);
+
+  @override
+  Future<List<DbEntryDto>> crateApiGetAllEntries({required String dbName}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_String(dbName);
+          return wire.wire__crate__api__get_all_entries(port_, arg0);
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_db_entry_dto,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiGetAllEntriesConstMeta,
+        argValues: [dbName],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiGetAllEntriesConstMeta =>
+      const TaskConstMeta(debugName: "get_all_entries", argNames: ["dbName"]);
 
   @override
   Future<Uint8List?> crateApiGetData({
@@ -385,6 +469,49 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiIsNodeRunningConstMeta =>
       const TaskConstMeta(debugName: "is_node_running", argNames: []);
+
+  @override
+  List<String> crateApiListDatabases() {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          return wire.wire__crate__api__list_databases();
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_String,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiListDatabasesConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiListDatabasesConstMeta =>
+      const TaskConstMeta(debugName: "list_databases", argNames: []);
+
+  @override
+  List<String> crateApiListKeys({required String dbName}) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          var arg0 = cst_encode_String(dbName);
+          return wire.wire__crate__api__list_keys(arg0);
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_String,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiListKeysConstMeta,
+        argValues: [dbName],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiListKeysConstMeta =>
+      const TaskConstMeta(debugName: "list_keys", argNames: ["dbName"]);
 
   @override
   Future<void> crateApiRequestSync({PlatformInt64? sinceTimestamp}) {
@@ -743,6 +870,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  DbEntryDto dco_decode_db_entry_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    return DbEntryDto(
+      dbName: dco_decode_String(arr[0]),
+      key: dco_decode_String(arr[1]),
+      value: dco_decode_String(arr[2]),
+      valueBytes: dco_decode_list_prim_u_8_strict(arr[3]),
+    );
+  }
+
+  @protected
   PlatformInt64 dco_decode_i_64(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dcoDecodeI64(raw);
@@ -764,6 +905,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   List<String> dco_decode_list_String(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_String).toList();
+  }
+
+  @protected
+  List<DbEntryDto> dco_decode_list_db_entry_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_db_entry_dto).toList();
   }
 
   @protected
@@ -921,6 +1068,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  DbEntryDto sse_decode_db_entry_dto(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_dbName = sse_decode_String(deserializer);
+    var var_key = sse_decode_String(deserializer);
+    var var_value = sse_decode_String(deserializer);
+    var var_valueBytes = sse_decode_list_prim_u_8_strict(deserializer);
+    return DbEntryDto(
+      dbName: var_dbName,
+      key: var_key,
+      value: var_value,
+      valueBytes: var_valueBytes,
+    );
+  }
+
+  @protected
   PlatformInt64 sse_decode_i_64(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getPlatformInt64();
@@ -942,6 +1104,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var ans_ = <String>[];
     for (var idx_ = 0; idx_ < len_; ++idx_) {
       ans_.add(sse_decode_String(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<DbEntryDto> sse_decode_list_db_entry_dto(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <DbEntryDto>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_db_entry_dto(deserializer));
     }
     return ans_;
   }
@@ -1182,6 +1356,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_db_entry_dto(DbEntryDto self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.dbName, serializer);
+    sse_encode_String(self.key, serializer);
+    sse_encode_String(self.value, serializer);
+    sse_encode_list_prim_u_8_strict(self.valueBytes, serializer);
+  }
+
+  @protected
   void sse_encode_i_64(PlatformInt64 self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putPlatformInt64(self);
@@ -1200,6 +1383,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_i_32(self.length, serializer);
     for (final item in self) {
       sse_encode_String(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_db_entry_dto(
+    List<DbEntryDto> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_db_entry_dto(item, serializer);
     }
   }
 

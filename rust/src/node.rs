@@ -656,39 +656,90 @@ impl CyberflyNode {
             let sync_manager_clone = sync_manager.clone();
             let event_tx_clone = event_tx.clone();
             let sync_sender_clone = sync_sender.clone();
+            let shared_state_clone = shared_state.clone();
 
             tokio::spawn(async move {
+                log_info!("Sync topic listener started, waiting for sync messages...");
                 while let Some(event) = receiver.next().await {
-                    if let Ok(GossipEvent::Received(msg)) = event {
-                        let from_peer = msg.delivered_from.to_string();
-                        
-                        if let Ok(sync_msg) = serde_json::from_slice::<SyncMessage>(&msg.content) {
-                            match sync_manager_clone.handle_sync_message(sync_msg, &from_peer).await {
-                                Ok(Some(response)) => {
-                                    // Send response back
-                                    if let Some(sender) = sync_sender_clone.lock().await.as_ref() {
-                                        if let Ok(payload) = serde_json::to_vec(&response) {
-                                            let _ = sender.broadcast(Bytes::from(payload)).await;
+                    match event {
+                        Ok(GossipEvent::Received(msg)) => {
+                            let from_peer = msg.delivered_from.to_string();
+                            log_info!("📨 Received sync message from {} ({} bytes)", from_peer, msg.content.len());
+                            
+                            match serde_json::from_slice::<SyncMessage>(&msg.content) {
+                                Ok(sync_msg) => {
+                                    // Log what type of message we received
+                                    match &sync_msg {
+                                        SyncMessage::Operation { operation } => {
+                                            log_info!("📥 Received Operation: {} db={} key={}", 
+                                                operation.op_id, operation.db_name, operation.key);
+                                        }
+                                        SyncMessage::SyncRequest { requester, since_timestamp } => {
+                                            log_info!("📥 Received SyncRequest from {} since={:?}", 
+                                                requester, since_timestamp);
+                                        }
+                                        SyncMessage::SyncResponse { requester, operations, .. } => {
+                                            log_info!("📥 Received SyncResponse for {} with {} ops", 
+                                                requester, operations.len());
                                         }
                                     }
+                                    
+                                    // Update sync operations counter
+                                    shared_state_clone.write().sync_operations += 1;
+                                    
+                                    match sync_manager_clone.handle_sync_message(sync_msg, &from_peer).await {
+                                        Ok(Some(response)) => {
+                                            log_info!("📤 Sending sync response");
+                                            // Send response back
+                                            if let Some(sender) = sync_sender_clone.lock().await.as_ref() {
+                                                if let Ok(payload) = serde_json::to_vec(&response) {
+                                                    let _ = sender.broadcast(Bytes::from(payload)).await;
+                                                }
+                                            }
+                                        }
+                                        Ok(None) => {
+                                            log_info!("✓ Sync message handled (no response needed)");
+                                        }
+                                        Err(e) => {
+                                            log_error!("❌ Failed to handle sync message: {}", e);
+                                            error!("Failed to handle sync message: {}", e);
+                                        }
+                                    }
+                                    
+                                    // Send event for Operation messages
+                                    if let Ok(SyncMessage::Operation { operation }) = serde_json::from_slice::<SyncMessage>(&msg.content) {
+                                        let _ = event_tx_clone.send(NodeEvent::SyncReceived {
+                                            db_name: operation.db_name,
+                                            key: operation.key,
+                                        }).await;
+                                    }
                                 }
-                                Ok(None) => {}
                                 Err(e) => {
-                                    error!("Failed to handle sync message: {}", e);
+                                    log_error!("❌ Failed to deserialize sync message: {}", e);
+                                    // Log first 200 bytes for debugging
+                                    let preview = String::from_utf8_lossy(&msg.content[..msg.content.len().min(200)]);
+                                    log_error!("Message preview: {}", preview);
                                 }
                             }
-                            
-                            // Send event for Operation messages
-                            if let Ok(SyncMessage::Operation { operation }) = serde_json::from_slice::<SyncMessage>(&msg.content) {
-                                let _ = event_tx_clone.send(NodeEvent::SyncReceived {
-                                    db_name: operation.db_name,
-                                    key: operation.key,
-                                }).await;
-                            }
+                        }
+                        Ok(GossipEvent::NeighborUp(peer_id)) => {
+                            log_info!("Sync topic: NeighborUp {}", peer_id);
+                        }
+                        Ok(GossipEvent::NeighborDown(peer_id)) => {
+                            log_info!("Sync topic: NeighborDown {}", peer_id);
+                        }
+                        Ok(GossipEvent::Lagged) => {
+                            log_warn!("Sync topic gossip lagged");
+                        }
+                        Err(e) => {
+                            log_error!("Sync topic gossip error: {}", e);
                         }
                     }
                 }
+                log_info!("Sync topic listener ended");
             });
+        } else {
+            log_error!("Failed to subscribe to sync topic!");
         }
 
         // Subscribe to peer discovery topic
@@ -785,6 +836,29 @@ impl CyberflyNode {
                 
                 // Cleanup expired peers
                 peer_registry_announce.write().cleanup_expired();
+            }
+        });
+
+        // Initial sync request - request full sync from bootstrap peers after a short delay
+        let sync_sender_initial = sync_sender.clone();
+        let node_id_sync = node_id.clone();
+        tokio::spawn(async move {
+            // Wait a bit for connections to establish
+            tokio::time::sleep(Duration::from_secs(5)).await;
+            
+            log_info!("📤 Sending initial sync request to bootstrap peers...");
+            let sync_request = SyncMessage::SyncRequest {
+                requester: node_id_sync,
+                since_timestamp: None, // Full sync
+            };
+            
+            if let Some(sender) = sync_sender_initial.lock().await.as_ref() {
+                if let Ok(payload) = serde_json::to_vec(&sync_request) {
+                    match sender.broadcast(Bytes::from(payload)).await {
+                        Ok(_) => log_info!("✓ Initial sync request sent"),
+                        Err(e) => log_error!("Failed to send initial sync request: {}", e),
+                    }
+                }
             }
         });
 
@@ -1023,5 +1097,53 @@ impl CyberflyNode {
         self.command_tx.send(NodeCommand::Stop(tx)).await?;
         rx.await?;
         Ok(())
+    }
+
+    /// List all databases
+    pub fn list_databases(&self) -> Result<Vec<String>> {
+        self.storage.list_databases()
+    }
+
+    /// List all keys in a database
+    pub fn list_keys(&self, db_name: &str) -> Result<Vec<String>> {
+        self.storage.list_keys(db_name)
+    }
+
+    /// Get all entries from a database
+    pub async fn get_all_entries(&self, db_name: &str) -> Result<Vec<crate::api::DbEntryDto>> {
+        let keys = self.storage.list_keys(db_name)?;
+        let mut entries = Vec::new();
+        
+        for key in keys {
+            if let Some(value_bytes) = self.storage.get(db_name, &key)? {
+                let value = String::from_utf8_lossy(&value_bytes).to_string();
+                entries.push(crate::api::DbEntryDto {
+                    db_name: db_name.to_string(),
+                    key,
+                    value,
+                    value_bytes,
+                });
+            }
+        }
+        
+        Ok(entries)
+    }
+
+    /// Get all entries from all databases
+    pub async fn get_all_data(&self) -> Result<Vec<crate::api::DbEntryDto>> {
+        let db_names = self.storage.list_databases()?;
+        let mut all_entries = Vec::new();
+        
+        for db_name in db_names {
+            let entries = self.get_all_entries(&db_name).await?;
+            all_entries.extend(entries);
+        }
+        
+        Ok(all_entries)
+    }
+
+    /// Delete a key from a database
+    pub async fn delete_data(&self, db_name: &str, key: &str) -> Result<()> {
+        self.storage.delete(db_name, key)
     }
 }

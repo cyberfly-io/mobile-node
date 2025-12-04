@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../src/rust/api.dart' as rust_api;
 
 /// Model class for database operation display
 class DbOperation {
@@ -42,6 +43,7 @@ class _DataScreenState extends State<DataScreen> {
   @override
   void initState() {
     super.initState();
+    _loadDatabaseNames();
   }
 
   @override
@@ -50,7 +52,20 @@ class _DataScreenState extends State<DataScreen> {
     super.dispose();
   }
 
-  void _fetchData() {
+  Future<void> _loadDatabaseNames() async {
+    try {
+      final dbNames = rust_api.listDatabases();
+      if (mounted) {
+        setState(() {
+          _dbNames = dbNames;
+        });
+      }
+    } catch (e) {
+      // Silently fail if node not running
+    }
+  }
+
+  Future<void> _fetchData() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -59,33 +74,124 @@ class _DataScreenState extends State<DataScreen> {
       _results = [];
     });
 
-    // TODO: Implement data fetching via flutter_rust_bridge
-    Future.delayed(const Duration(seconds: 1), () {
+    try {
+      final entries = await rust_api.getAllEntries(dbName: _dbNameController.text.trim());
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _error = 'Data explorer not yet implemented with flutter_rust_bridge';
+          _results = entries.map((e) => DbOperation(
+            opId: '${e.dbName}:${e.key}',
+            dbName: e.dbName,
+            key: e.key,
+            value: e.value,
+            storeType: _detectStoreType(e.value),
+            timestamp: DateTime.now().millisecondsSinceEpoch,
+            signer: '',
+          )).toList();
+          if (_results.isEmpty) {
+            _error = 'No data found in database "${_dbNameController.text.trim()}"';
+          }
         });
       }
-    });
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _error = 'Error fetching data: $e';
+        });
+      }
+    }
   }
 
-  void _fetchAllData() {
+  String _detectStoreType(String value) {
+    final trimmed = value.trim();
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      return 'json';
+    }
+    return 'string';
+  }
+
+  Future<void> _fetchAllData() async {
     setState(() {
       _isLoading = true;
       _error = null;
       _results = [];
     });
 
-    // TODO: Implement data fetching via flutter_rust_bridge
-    Future.delayed(const Duration(seconds: 1), () {
+    try {
+      final entries = await rust_api.getAllData();
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _error = 'Data explorer not yet implemented with flutter_rust_bridge';
+          _results = entries.map((e) => DbOperation(
+            opId: '${e.dbName}:${e.key}',
+            dbName: e.dbName,
+            key: e.key,
+            value: e.value,
+            storeType: _detectStoreType(e.value),
+            timestamp: DateTime.now().millisecondsSinceEpoch,
+            signer: '',
+          )).toList();
+          // Update db names list
+          _dbNames = entries.map((e) => e.dbName).toSet().toList();
+          if (_results.isEmpty) {
+            _error = 'No data stored yet';
+          }
         });
       }
-    });
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _error = 'Error fetching data: $e';
+        });
+      }
+    }
+  }
+
+  Future<void> _deleteEntry(DbOperation op) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1D1E33),
+        title: const Text('Delete Entry', style: TextStyle(color: Colors.white)),
+        content: Text(
+          'Are you sure you want to delete "${op.key}" from "${op.dbName}"?',
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await rust_api.deleteData(dbName: op.dbName, key: op.key);
+        if (mounted) {
+          setState(() {
+            _results.removeWhere((r) => r.opId == op.opId);
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Entry deleted')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to delete: $e')),
+          );
+        }
+      }
+    }
   }
 
   @override
@@ -360,7 +466,6 @@ class _DataScreenState extends State<DataScreen> {
   }
 
   Widget _buildResultCard(DbOperation op) {
-    final timestamp = DateTime.fromMillisecondsSinceEpoch(op.timestamp);
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -411,6 +516,16 @@ class _DataScreenState extends State<DataScreen> {
                 color: Colors.white.withOpacity(0.5),
                 constraints: const BoxConstraints(),
                 padding: const EdgeInsets.all(4),
+                tooltip: 'Copy value',
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                onPressed: () => _deleteEntry(op),
+                icon: const Icon(Icons.delete_outline, size: 16),
+                color: Colors.red.withOpacity(0.7),
+                constraints: const BoxConstraints(),
+                padding: const EdgeInsets.all(4),
+                tooltip: 'Delete entry',
               ),
             ],
           ),
@@ -429,26 +544,21 @@ class _DataScreenState extends State<DataScreen> {
           Row(
             children: [
               Icon(
-                Icons.schedule,
+                Icons.storage,
                 size: 12,
                 color: Colors.white.withOpacity(0.4),
               ),
               const SizedBox(width: 4),
-              Text(
-                '${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}:${timestamp.second.toString().padLeft(2, '0')} ${timestamp.day}/${timestamp.month}/${timestamp.year}',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.4),
-                  fontSize: 11,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                op.dbName.length > 25
-                    ? '${op.dbName.substring(0, 25)}...'
-                    : op.dbName,
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.4),
-                  fontSize: 11,
+              Expanded(
+                child: Text(
+                  op.dbName.length > 40
+                      ? '${op.dbName.substring(0, 40)}...'
+                      : op.dbName,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.4),
+                    fontSize: 11,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
