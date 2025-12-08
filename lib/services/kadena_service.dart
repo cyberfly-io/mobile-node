@@ -596,7 +596,8 @@ class KadenaService extends ChangeNotifier {
   }
 
   /// Ensure node is registered and active (main entry point)
-  Future<bool> ensureRegistered(String peerId, String multiaddr) async {
+  /// Returns: 'created' if new node created, 'active' if already active, 'activated' if was inactive, null if failed
+  Future<String?> ensureRegistered(String peerId, String multiaddr) async {
     debugPrint('ensureRegistered called:');
     debugPrint('  peerId: $peerId');
     debugPrint('  multiaddr: $multiaddr');
@@ -610,22 +611,23 @@ class KadenaService extends ChangeNotifier {
       final success = await createNode(peerId, multiaddr);
       
       // If creation failed with "already exists", the node exists with different format
-      // Just return true as the node is already registered
+      // Just return 'active' as the node is already registered
       if (!success && _error != null && _error!.toLowerCase().contains('already exists')) {
-        debugPrint('  -> Node already exists (different key format), treating as success');
+        debugPrint('  -> Node already exists (different key format), treating as active');
         _error = null;
-        return true;
+        return 'active';
       }
-      return success;
+      return success ? 'created' : null;
     } else if (!nodeInfo.isActive) {
       // Node inactive, activate it
       debugPrint('  -> Node found but inactive, activating...');
-      return await activateNode(peerId, multiaddr);
+      final success = await activateNode(peerId, multiaddr);
+      return success ? 'activated' : null;
     }
 
     // Already active
     debugPrint('  -> Node already active');
-    return true;
+    return 'active';
   }
 
   // ============= BALANCE METHODS =============

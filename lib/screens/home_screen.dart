@@ -88,6 +88,116 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return Scaffold(
       body: Stack(
         children: [
+          // Theme-aware gradient background
+          Container(
+            decoration: BoxDecoration(
+              gradient: isDark 
+                  ? const LinearGradient(
+                      colors: [
+                        Color(0xFF0A0A1A),
+                        Color(0xFF0D1B2A),
+                        Color(0xFF1B0A28),
+                        Color(0xFF0A0A1A),
+                      ],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      stops: [0.0, 0.3, 0.7, 1.0],
+                    )
+                  : const LinearGradient(
+                      colors: [
+                        Color(0xFFF8FAFF),
+                        Color(0xFFEEF2FF),
+                        Color(0xFFF5F0FF),
+                        Color(0xFFF8FAFF),
+                      ],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      stops: [0.0, 0.3, 0.7, 1.0],
+                    ),
+            ),
+          ),
+          
+          // Subtle glow overlays (different for light/dark)
+          if (isDark) ...[
+            // Purple glow for dark mode
+            Positioned(
+              top: -100,
+              right: -100,
+              child: Container(
+                width: 300,
+                height: 300,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      const Color(0xFF9D00FF).withOpacity(0.15),
+                      const Color(0xFF9D00FF).withOpacity(0.05),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // Cyan glow for dark mode
+            Positioned(
+              bottom: 100,
+              left: -50,
+              child: Container(
+                width: 250,
+                height: 250,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      const Color(0xFF00A3FF).withOpacity(0.1),
+                      const Color(0xFF00A3FF).withOpacity(0.03),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ] else ...[
+            // Subtle cyan accent for light mode
+            Positioned(
+              top: -100,
+              right: -100,
+              child: Container(
+                width: 300,
+                height: 300,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      const Color(0xFF0097A7).withOpacity(0.08),
+                      const Color(0xFF0097A7).withOpacity(0.02),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // Subtle purple accent for light mode
+            Positioned(
+              bottom: 100,
+              left: -50,
+              child: Container(
+                width: 250,
+                height: 250,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      const Color(0xFF6A1B9A).withOpacity(0.05),
+                      const Color(0xFF6A1B9A).withOpacity(0.01),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+          
           // Cyberpunk animated background with matrix rain (dark mode only)
           // Wrapped in RepaintBoundary to isolate repaints
           if (isDark) ...[
@@ -95,7 +205,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               child: MatrixRainBackground(
                 columns: 15,
                 speed: 0.8,
-                opacity: 0.1,
+                opacity: 0.08,
               ),
             ),
 
@@ -103,7 +213,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             const RepaintBoundary(
               child: HexGridBackground(
                 hexSize: 50,
-                opacity: 0.05,
+                opacity: 0.03,
               ),
             ),
           ],
@@ -119,22 +229,42 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   pinned: true,
                   backgroundColor: CyberTheme.appBarBackground(context),
                   actions: [
-                    // Refresh button
+                    // Refresh button with rotation animation
                     if (nodeService.isRunning)
-                      IconButton(
-                        onPressed: () => nodeService.refreshStatus(),
-                        icon: Icon(Icons.refresh, color: CyberTheme.primary(context)),
-                        tooltip: 'Refresh',
+                      TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0, end: 1),
+                        duration: const Duration(milliseconds: 500),
+                        builder: (context, value, child) {
+                          return Transform.scale(
+                            scale: 0.8 + (0.2 * value),
+                            child: Opacity(
+                              opacity: value,
+                              child: IconButton(
+                                onPressed: () => nodeService.refreshStatus(),
+                                icon: Icon(Icons.refresh, color: CyberTheme.primary(context)),
+                                tooltip: 'Refresh',
+                              ),
+                            ),
+                          );
+                        },
                       )
                   ],
                   flexibleSpace: FlexibleSpaceBar(
                     title: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Image.asset(
-                          'assets/images/logo.png',
-                          width: 28,
-                          height: 28,
+                        // Floating logo animation
+                        FloatingAnimation(
+                          floatHeight: 4,
+                          duration: const Duration(seconds: 3),
+                          child: Hero(
+                            tag: 'app_logo',
+                            child: Image.asset(
+                              'assets/images/logo.png',
+                              width: 28,
+                              height: 28,
+                            ),
+                          ),
                         ),
                         const SizedBox(width: 10),
                         Text(
@@ -160,46 +290,67 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Wallet card
-                        _buildWalletCard(context, walletService),
+                        // Wallet card with staggered animation
+                        AnimatedListItem(
+                          index: 0,
+                          child: _buildWalletCard(context, walletService),
+                        ),
 
                         const SizedBox(height: 16),
 
-                        // Node info card
+                        // Node info card with staggered animation
                         if (nodeService.nodeInfo != null)
-                          NodeInfoCard(nodeInfo: nodeService.nodeInfo!),
+                          AnimatedListItem(
+                            index: 1,
+                            child: Hero(
+                              tag: 'node_info_card',
+                              child: NodeInfoCard(nodeInfo: nodeService.nodeInfo!),
+                            ),
+                          ),
 
                         const SizedBox(height: 16),
 
-                        // Status indicator
-                        StatusIndicator(
-                          status: nodeService.status,
-                          isStarting: nodeService.isStarting,
+                        // Status indicator with staggered animation
+                        AnimatedListItem(
+                          index: 2,
+                          child: StatusIndicator(
+                            status: nodeService.status,
+                            isStarting: nodeService.isStarting,
+                          ),
                         ),
 
                         const SizedBox(height: 24),
 
-                        // Stats grid
-                        _buildStatsGrid(context, nodeService),
+                        // Stats grid with staggered animation
+                        AnimatedListItem(
+                          index: 3,
+                          child: _buildStatsGrid(context, nodeService),
+                        ),
 
                         const SizedBox(height: 24),
 
                         // Peers section - always show
                         if (nodeService.isRunning) ...[
-                          Text(
-                            'CONNECTED PEERS',
-                            style: TextStyle(
-                              fontFamily: 'monospace',
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: CyberTheme.primary(context),
-                              letterSpacing: 2,
+                          AnimatedListItem(
+                            index: 4,
+                            child: Text(
+                              'CONNECTED PEERS',
+                              style: TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: CyberTheme.primary(context),
+                                letterSpacing: 2,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 12),
-                          nodeService.peers.isEmpty
-                              ? _buildEmptyPeersCard(context)
-                              : PeerList(peers: nodeService.peers),
+                          AnimatedListItem(
+                            index: 5,
+                            child: nodeService.peers.isEmpty
+                                ? _buildEmptyPeersCard(context)
+                                : PeerList(peers: nodeService.peers),
+                          ),
                         ],
 
                         const SizedBox(height: 100), // Space for FAB
@@ -350,31 +501,226 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           
           // Refresh button
           const SizedBox(height: 12),
-          Center(
-            child: TextButton.icon(
-              onPressed: _isLoadingBalance ? null : _loadBalanceAndStaking,
-              icon: _isLoadingBalance 
-                  ? SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: primaryColor,
+          
+          // Stake/Unstake buttons
+          Row(
+            children: [
+              Expanded(
+                child: _stakeInfo?.active == true
+                    ? const SizedBox.shrink() // Hide unstake; already staked
+                    : _buildActionButton(
+                        context,
+                        label: 'Stake',
+                        icon: Icons.lock,
+                        color: CyberTheme.success(context),
+                        onPressed: _isLoadingBalance ? null : () => _showStakeDialog(context),
                       ),
-                    )
-                  : Icon(Icons.refresh, size: 14, color: primaryColor),
-              label: Text(
-                'Refresh',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: primaryColor,
-                ),
               ),
-            ),
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: _isLoadingBalance ? null : _loadBalanceAndStaking,
+                icon: _isLoadingBalance 
+                    ? SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: primaryColor,
+                        ),
+                      )
+                    : Icon(Icons.refresh, size: 18, color: primaryColor),
+                tooltip: 'Refresh',
+              ),
+            ],
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildActionButton(
+    BuildContext context, {
+    required String label,
+    required IconData icon,
+    required Color color,
+    VoidCallback? onPressed,
+  }) {
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 16),
+      label: Text(label),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: color,
+        side: BorderSide(color: color.withOpacity(0.5)),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      ),
+    );
+  }
+
+  Widget _buildIconButton(
+    BuildContext context, {
+    required IconData icon,
+    required Color color,
+    required String tooltip,
+    VoidCallback? onPressed,
+  }) {
+    return IconButton(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 20, color: color),
+      tooltip: tooltip,
+      style: IconButton.styleFrom(
+        side: BorderSide(color: color.withOpacity(0.5)),
+        padding: const EdgeInsets.all(8),
+      ),
+    );
+  }
+
+  Future<void> _showStakeDialog(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: CyberTheme.card(context),
+        title: Text(
+          'Stake 50,000 CFLY',
+          style: TextStyle(color: CyberTheme.textPrimary(context)),
+        ),
+        content: Text(
+          'Are you sure you want to stake 50,000 CFLY on your node? '
+          'This will lock your tokens until you unstake.',
+          style: TextStyle(color: CyberTheme.textSecondary(context)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Cancel', style: TextStyle(color: CyberTheme.textDim(context))),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: CyberTheme.success(context),
+            ),
+            child: const Text('Stake'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      await _performStake();
+    }
+  }
+
+  Future<void> _showUnstakeDialog(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: CyberTheme.card(context),
+        title: Text(
+          'Unstake CFLY',
+          style: TextStyle(color: CyberTheme.textPrimary(context)),
+        ),
+        content: Text(
+          'Are you sure you want to unstake? '
+          'Your 50,000 CFLY will be returned to your account.',
+          style: TextStyle(color: CyberTheme.textSecondary(context)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Cancel', style: TextStyle(color: CyberTheme.textDim(context))),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: CyberTheme.error(context),
+            ),
+            child: const Text('Unstake'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      await _performUnstake();
+    }
+  }
+
+  Future<void> _performStake() async {
+    final walletService = context.read<WalletService>();
+    final kadenaService = context.read<KadenaService>();
+    final publicKey = walletService.publicKey;
+    
+    if (publicKey == null) return;
+
+    setState(() => _isLoadingBalance = true);
+
+    try {
+      final success = await kadenaService.stakeOnNode(publicKey);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              success ? 'Stake transaction submitted!' : 'Stake failed: ${kadenaService.error}',
+              style: TextStyle(color: CyberTheme.textPrimary(context)),
+            ),
+            backgroundColor: success ? CyberTheme.success(context) : CyberTheme.error(context),
+          ),
+        );
+        
+        // Reload balance and staking info
+        await _loadBalanceAndStaking();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingBalance = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: CyberTheme.error(context),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _performUnstake() async {
+    final walletService = context.read<WalletService>();
+    final kadenaService = context.read<KadenaService>();
+    final publicKey = walletService.publicKey;
+    
+    if (publicKey == null) return;
+
+    setState(() => _isLoadingBalance = true);
+
+    try {
+      final success = await kadenaService.unstakeFromNode(publicKey);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              success ? 'Unstake transaction submitted!' : 'Unstake failed: ${kadenaService.error}',
+              style: TextStyle(color: CyberTheme.textPrimary(context)),
+            ),
+            backgroundColor: success ? CyberTheme.success(context) : CyberTheme.error(context),
+          ),
+        );
+        
+        // Reload balance and staking info
+        await _loadBalanceAndStaking();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingBalance = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: CyberTheme.error(context),
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildBalanceItem(

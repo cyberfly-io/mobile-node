@@ -222,25 +222,21 @@ class _AppEntryPointState extends State<AppEntryPoint> {
             debugPrint('  PeerId (publicKey): $publicKey');
             debugPrint('  Multiaddr: $multiaddr');
             
-            // Show registering snackbar
-            showGlobalSnackBar('Registering node to smart contract...');
-            
             try {
-              final success = await kadenaService.ensureRegistered(publicKey, multiaddr);
-              debugPrint('Node registration ${success ? 'successful' : 'failed'}');
+              final result = await kadenaService.ensureRegistered(publicKey, multiaddr);
+              debugPrint('Node registration result: $result');
               
-              if (success) {
+              if (result == 'created') {
                 showGlobalSnackBar('✓ Node registered successfully!', isSuccess: true);
+              } else if (result == 'activated') {
+                showGlobalSnackBar('✓ Node activated successfully!', isSuccess: true);
+              } else if (result == 'active') {
+                // Node already registered and active - no snackbar needed
+                debugPrint('Node already active, skipping snackbar');
               } else {
                 final error = kadenaService.error ?? 'Unknown error';
                 debugPrint('Registration failed: $error');
-                
-                // If node already exists, it's actually a success
-                if (error.toLowerCase().contains('already exists')) {
-                  showGlobalSnackBar('✓ Node already registered!', isSuccess: true);
-                } else {
-                  showGlobalSnackBar('Registration failed: $error', isError: true);
-                }
+                showGlobalSnackBar('Registration failed: $error', isError: true);
               }
             } catch (e) {
               debugPrint('Node registration error: $e');

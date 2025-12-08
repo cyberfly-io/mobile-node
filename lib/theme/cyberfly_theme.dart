@@ -13,13 +13,20 @@ class CyberColors {
   static const Color neonRed = Color(0xFFFF0055);
   static const Color neonOrange = Color(0xFFFF6B00);
   static const Color neonPurple = Color(0xFF9D00FF);
+  static const Color neonBlue = Color(0xFF00A3FF);
 
-  // Background Colors (Dark Space Blue)
-  static const Color backgroundDark = Color(0xFF0A0E27);
-  static const Color backgroundMedium = Color(0xFF1A1F3A);
-  static const Color backgroundLight = Color(0xFF252B4A);
-  static const Color backgroundCard = Color(0xFF151933);
-  static const Color backgroundElevated = Color(0xFF1E2444);
+  // Background Colors (Deep Space Blue/Purple)
+  static const Color backgroundDark = Color(0xFF0A0A1A);
+  static const Color backgroundMedium = Color(0xFF12122B);
+  static const Color backgroundLight = Color(0xFF1A1A3E);
+  static const Color backgroundCard = Color(0xFF0F0F28);
+  static const Color backgroundElevated = Color(0xFF181840);
+  
+  // Deep gradient colors
+  static const Color deepBlue = Color(0xFF0D1B2A);
+  static const Color deepPurple = Color(0xFF1B0A28);
+  static const Color midnightBlue = Color(0xFF0B132B);
+  static const Color cosmicPurple = Color(0xFF1C0F30);
   
   // Alias for convenience
   static const Color cardDark = backgroundCard;
@@ -73,6 +80,40 @@ class CyberColors {
     colors: [backgroundCard, backgroundElevated],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
+  );
+  
+  // New futuristic gradients
+  static const LinearGradient cosmicGradient = LinearGradient(
+    colors: [deepBlue, cosmicPurple, midnightBlue],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    stops: [0.0, 0.5, 1.0],
+  );
+  
+  static const LinearGradient cyberGradient = LinearGradient(
+    colors: [
+      Color(0xFF0A0A1A),
+      Color(0xFF0D1B2A),
+      Color(0xFF1B0A28),
+    ],
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+  );
+  
+  static const LinearGradient neonAccentGradient = LinearGradient(
+    colors: [neonBlue, neonPurple, neonMagenta],
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+  );
+  
+  static const RadialGradient glowGradient = RadialGradient(
+    colors: [
+      Color(0x30A855F7),
+      Color(0x1500A3FF),
+      Color(0x00000000),
+    ],
+    center: Alignment.center,
+    radius: 1.0,
   );
 
   // Glow Colors (with opacity for shadows)

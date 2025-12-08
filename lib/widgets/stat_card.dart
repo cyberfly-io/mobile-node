@@ -95,21 +95,54 @@ class StatCard extends StatelessWidget {
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
-                  child: Text(
-                    value,
-                    style: TextStyle(
-                      fontFamily: 'monospace',
-                      color: color,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: -0.5,
-                      shadows: [
-                        Shadow(
-                          color: color.withOpacity(0.5),
-                          blurRadius: 8,
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0, end: 1),
+                    duration: const Duration(milliseconds: 800),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, animValue, child) {
+                      // Parse numeric value for animation
+                      final numMatch = RegExp(r'[\d.]+').firstMatch(value);
+                      if (numMatch != null) {
+                        final numVal = double.tryParse(numMatch.group(0)!) ?? 0;
+                        final animatedNum = numVal * animValue;
+                        final suffix = value.replaceAll(numMatch.group(0)!, '');
+                        final displayVal = numVal == numVal.toInt()
+                            ? '${animatedNum.toInt()}$suffix'
+                            : '${animatedNum.toStringAsFixed(2)}$suffix';
+                        return Text(
+                          displayVal,
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            color: color,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: -0.5,
+                            shadows: [
+                              Shadow(
+                                color: color.withOpacity(0.5),
+                                blurRadius: 8,
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                      return Text(
+                        value,
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          color: color,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: -0.5,
+                          shadows: [
+                            Shadow(
+                              color: color.withOpacity(0.5),
+                              blurRadius: 8,
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      );
+                    },
                   ),
                 ),
                 if (subtitle != null) ...[

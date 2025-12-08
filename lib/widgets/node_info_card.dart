@@ -3,10 +3,35 @@ import 'package:flutter/services.dart';
 import '../services/node_service.dart';
 import '../theme/theme.dart';
 
-class NodeInfoCard extends StatelessWidget {
+class NodeInfoCard extends StatefulWidget {
   final NodeInfo nodeInfo;
 
   const NodeInfoCard({super.key, required this.nodeInfo});
+
+  @override
+  State<NodeInfoCard> createState() => _NodeInfoCardState();
+}
+
+class _NodeInfoCardState extends State<NodeInfoCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _iconRotation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(seconds: 10),
+      vsync: this,
+    )..repeat();
+    _iconRotation = Tween<double>(begin: 0, end: 1).animate(_controller);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,17 +63,26 @@ class NodeInfoCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF00D9FF).withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.hub,
-                  color: Color(0xFF00D9FF),
-                  size: 24,
-                ),
+              // Animated rotating hub icon
+              AnimatedBuilder(
+                animation: _iconRotation,
+                builder: (context, child) {
+                  return Transform.rotate(
+                    angle: _iconRotation.value * 2 * 3.14159,
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF00D9FF).withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.hub,
+                        color: Color(0xFF00D9FF),
+                        size: 24,
+                      ),
+                    ),
+                  );
+                },
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -84,8 +118,8 @@ class NodeInfoCard extends StatelessWidget {
           // Node ID
           _InfoRow(
             label: 'Node ID',
-            value: _truncateId(nodeInfo.nodeId),
-            fullValue: nodeInfo.nodeId,
+            value: _truncateId(widget.nodeInfo.nodeId),
+            fullValue: widget.nodeInfo.nodeId,
             icon: Icons.fingerprint,
             color: const Color(0xFF00D9FF),
           ),
@@ -95,8 +129,8 @@ class NodeInfoCard extends StatelessWidget {
           // Version
           _InfoRow(
             label: 'Version',
-            value: nodeInfo.version,
-            fullValue: nodeInfo.version,
+            value: widget.nodeInfo.version,
+            fullValue: widget.nodeInfo.version,
             icon: Icons.info_outline,
             color: const Color(0xFFFFD93D),
             copyable: false,

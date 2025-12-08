@@ -1030,3 +1030,268 @@ class _AnimatedGradientBorderState extends State<AnimatedGradientBorder>
     );
   }
 }
+
+/// Fade-in and slide animation wrapper for staggered list animations
+class AnimatedListItem extends StatefulWidget {
+  final Widget child;
+  final int index;
+  final Duration delay;
+  final Duration duration;
+  final Offset slideOffset;
+
+  const AnimatedListItem({
+    super.key,
+    required this.child,
+    this.index = 0,
+    this.delay = const Duration(milliseconds: 100),
+    this.duration = const Duration(milliseconds: 400),
+    this.slideOffset = const Offset(0, 30),
+  });
+
+  @override
+  State<AnimatedListItem> createState() => _AnimatedListItemState();
+}
+
+class _AnimatedListItemState extends State<AnimatedListItem>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: widget.duration,
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: widget.slideOffset,
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
+
+    // Stagger the animation based on index
+    Future.delayed(Duration(milliseconds: widget.delay.inMilliseconds * widget.index), () {
+      if (mounted) {
+        _controller.forward();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: _slideAnimation.value,
+          child: Opacity(
+            opacity: _fadeAnimation.value,
+            child: widget.child,
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Scale animation on tap for interactive elements
+class ScaleOnTap extends StatefulWidget {
+  final Widget child;
+  final VoidCallback? onTap;
+  final double scaleDown;
+
+  const ScaleOnTap({
+    super.key,
+    required this.child,
+    this.onTap,
+    this.scaleDown = 0.95,
+  });
+
+  @override
+  State<ScaleOnTap> createState() => _ScaleOnTapState();
+}
+
+class _ScaleOnTapState extends State<ScaleOnTap>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 100),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: widget.scaleDown).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => _controller.forward(),
+      onTapUp: (_) {
+        _controller.reverse();
+        widget.onTap?.call();
+      },
+      onTapCancel: () => _controller.reverse(),
+      child: AnimatedBuilder(
+        animation: _scaleAnimation,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _scaleAnimation.value,
+            child: widget.child,
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Floating animation for icons/elements
+class FloatingAnimation extends StatefulWidget {
+  final Widget child;
+  final double floatHeight;
+  final Duration duration;
+
+  const FloatingAnimation({
+    super.key,
+    required this.child,
+    this.floatHeight = 8,
+    this.duration = const Duration(seconds: 2),
+  });
+
+  @override
+  State<FloatingAnimation> createState() => _FloatingAnimationState();
+}
+
+class _FloatingAnimationState extends State<FloatingAnimation>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: widget.duration,
+      vsync: this,
+    )..repeat(reverse: true);
+    _animation = Tween<double>(begin: 0, end: widget.floatHeight).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, -_animation.value),
+          child: widget.child,
+        );
+      },
+    );
+  }
+}
+
+/// Counting animation for numeric values
+class AnimatedCounter extends StatefulWidget {
+  final String value;
+  final TextStyle? style;
+  final Duration duration;
+
+  const AnimatedCounter({
+    super.key,
+    required this.value,
+    this.style,
+    this.duration = const Duration(milliseconds: 800),
+  });
+
+  @override
+  State<AnimatedCounter> createState() => _AnimatedCounterState();
+}
+
+class _AnimatedCounterState extends State<AnimatedCounter>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+  String _displayValue = '0';
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: widget.duration,
+      vsync: this,
+    );
+    _animation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
+    );
+    _controller.addListener(_updateValue);
+    _controller.forward();
+  }
+
+  @override
+  void didUpdateWidget(AnimatedCounter oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value) {
+      _controller.forward(from: 0);
+    }
+  }
+
+  void _updateValue() {
+    final numericPart = RegExp(r'[\d.]+').firstMatch(widget.value)?.group(0);
+    if (numericPart != null) {
+      final targetValue = double.tryParse(numericPart) ?? 0;
+      final currentValue = targetValue * _animation.value;
+      final suffix = widget.value.replaceAll(numericPart, '');
+      
+      if (targetValue == targetValue.toInt()) {
+        _displayValue = '${currentValue.toInt()}$suffix';
+      } else {
+        _displayValue = '${currentValue.toStringAsFixed(2)}$suffix';
+      }
+      setState(() {});
+    } else {
+      _displayValue = widget.value;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_updateValue);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(_displayValue, style: widget.style);
+  }
+}
