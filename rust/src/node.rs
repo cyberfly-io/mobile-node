@@ -1036,13 +1036,17 @@ impl CyberflyNode {
     pub fn get_status_sync(&self) -> NodeStatus {
         let state = self.shared_state.read().clone();
         let uptime = self.start_time.elapsed().as_secs();
+        
+        // Get peer count directly from peer_registry for consistency with get_peers_sync
+        let peer_count = self.peer_registry.read().peer_count();
+        
         log_info!(">>> get_status_sync: uptime={}, connected={}, discovered={}, gossip_msgs={}", 
-            uptime, state.connected_peers, state.discovered_peers, state.gossip_messages_received);
+            uptime, peer_count, peer_count, state.gossip_messages_received);
         NodeStatus {
             is_running: state.is_running,
             node_id: Some(self.node_id.clone()),
-            connected_peers: state.connected_peers,
-            discovered_peers: state.discovered_peers,
+            connected_peers: peer_count,
+            discovered_peers: peer_count,
             uptime_seconds: uptime,
             gossip_messages_received: state.gossip_messages_received,
             storage_size_bytes: self.storage.size_bytes().unwrap_or(0),

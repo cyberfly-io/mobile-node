@@ -3,7 +3,7 @@ import '../widgets/animated_background.dart';
 import '../theme/theme.dart';
 import 'home_screen.dart';
 import 'data_screen.dart';
-import 'stake_screen.dart';
+import 'staking_screen.dart';
 import 'settings_screen.dart';
 
 class MainScreen extends StatefulWidget {
@@ -19,7 +19,7 @@ class _MainScreenState extends State<MainScreen> {
   final List<Widget> _screens = const [
     HomeScreen(),
     DataScreen(),
-    StakeScreen(),
+    StakingScreen(),
     SettingsScreen(),
   ];
 

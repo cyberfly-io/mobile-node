@@ -61,7 +61,11 @@ android_logger = "0.14"
 flutter_rust_bridge_codegen = "=2.11.1"
 
 [profile.release]
-lto = true
-opt-level = "z"
+lto = "thin"           # thin LTO for faster compile, still good optimization
+opt-level = 3            # max optimization for performance (z is for size)
 strip = true
 codegen-units = 1
+panic = "abort"          # smaller binary, no unwinding overhead
+
+[profile.dev]
+opt-level = 1            # some optimization in dev for faster testing

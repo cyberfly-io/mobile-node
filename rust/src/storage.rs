@@ -18,9 +18,10 @@ impl Storage {
     pub fn new(path: PathBuf) -> Result<Self> {
         let db = sled::Config::new()
             .path(path)
-            .cache_capacity(64 * 1024 * 1024) // 64MB cache
-            .flush_every_ms(Some(1000))
-            .use_compression(true) // Must match previous setting
+            .cache_capacity(128 * 1024 * 1024) // 128MB cache for better read perf
+            .flush_every_ms(Some(5000))         // Flush every 5s (less I/O, still safe)
+            .mode(sled::Mode::HighThroughput)   // Optimize for throughput
+            .use_compression(true)              // Must match previous setting
             .open()?;
         
         Ok(Self { db })

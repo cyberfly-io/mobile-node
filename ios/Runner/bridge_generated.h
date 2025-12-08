@@ -27,12 +27,12 @@ typedef struct _Dart_Handle* Dart_Handle;
 /**
  * How long before a peer is considered expired (no announcement)
  */
-#define PEER_EXPIRY_SECS 120
+#define PEER_EXPIRY_SECS 300
 
 /**
  * How often to announce ourselves
  */
-#define ANNOUNCE_INTERVAL_SECS 30
+#define ANNOUNCE_INTERVAL_SECS 10
 
 typedef struct wire_cst_list_prim_u_8_strict {
   uint8_t *ptr;

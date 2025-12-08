@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/main_screen.dart';
@@ -11,6 +13,68 @@ import 'services/node_service.dart';
 import 'services/auth_service.dart';
 import 'services/theme_service.dart';
 import 'theme/theme.dart';
+
+/// Fetch public IP address using ip-api.com (same as Rust node)
+Future<String?> getPublicIp() async {
+  try {
+    final response = await http.get(Uri.parse('http://ip-api.com/json/'));
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['query'] as String?;
+    }
+  } catch (e) {
+    debugPrint('Failed to fetch public IP: $e');
+  }
+  return null;
+}
+
+/// Show a snackbar message globally
+void showGlobalSnackBar(String message, {bool isError = false, bool isSuccess = false, bool clearPrevious = true}) {
+  // Ensure we're on the main thread and the messenger is ready
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    final messenger = scaffoldMessengerKey.currentState;
+    if (messenger == null) {
+      debugPrint('SnackBar: $message (messenger not ready)');
+      return;
+    }
+    
+    if (clearPrevious) {
+      messenger.clearSnackBars();
+    }
+    
+    final color = isError 
+        ? Colors.red 
+        : isSuccess 
+            ? const Color(0xFF00FF88) 
+            : const Color(0xFF00D9FF);
+    
+    messenger.showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              isError ? Icons.error : isSuccess ? Icons.check_circle : Icons.info,
+              color: Colors.white,
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.all(16),
+        duration: Duration(seconds: isSuccess ? 3 : 2),
+      ),
+    );
+  });
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,6 +96,9 @@ ThemeMode _getThemeMode(AppThemeMode mode) {
       return ThemeMode.system;
   }
 }
+
+// Global key for showing snackbars from anywhere
+final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
 class CyberflyNodeApp extends StatelessWidget {
   const CyberflyNodeApp({super.key});
@@ -57,6 +124,7 @@ class CyberflyNodeApp extends StatelessWidget {
           return MaterialApp(
             title: 'Cyberfly Node',
             debugShowCheckedModeBanner: false,
+            scaffoldMessengerKey: scaffoldMessengerKey,
             theme: CyberFlyTheme.lightTheme,
             darkTheme: CyberFlyTheme.darkTheme,
             themeMode: _getThemeMode(themeService.themeMode),
@@ -125,8 +193,64 @@ class _AppEntryPointState extends State<AppEntryPoint> {
       final autoStart = prefs.getBool('autoStart') ?? true;
       if (autoStart) {
         // Don't block app startup - start node in background
-        nodeService.startNode().then((_) {
+        nodeService.startNode().then((_) async {
           debugPrint('Node auto-started successfully');
+          debugPrint('  isRunning: ${nodeService.isRunning}');
+          debugPrint('  nodeInfo: ${nodeService.nodeInfo != null}');
+          
+          // Small delay to ensure state is fully propagated
+          await Future.delayed(const Duration(milliseconds: 500));
+          
+          // Register node to smart contract after successful start
+          if (nodeService.isRunning && nodeService.nodeInfo != null) {
+            final kadenaService = context.read<KadenaService>();
+            
+            // Use wallet public key as peerId for registration
+            final publicKey = walletService.publicKey;
+            if (publicKey == null) {
+              debugPrint('Cannot register node: wallet public key not available');
+              return;
+            }
+            
+            // Fetch public IP and construct multiaddr as: publickey@publicIp:31001
+            final publicIp = await getPublicIp();
+            final multiaddr = publicIp != null
+                ? '$publicKey@$publicIp:31001'
+                : nodeService.nodeInfo!.relayUrl ?? '/p2p/$publicKey';
+            
+            debugPrint('Registering node to smart contract:');
+            debugPrint('  PeerId (publicKey): $publicKey');
+            debugPrint('  Multiaddr: $multiaddr');
+            
+            // Show registering snackbar
+            showGlobalSnackBar('Registering node to smart contract...');
+            
+            try {
+              final success = await kadenaService.ensureRegistered(publicKey, multiaddr);
+              debugPrint('Node registration ${success ? 'successful' : 'failed'}');
+              
+              if (success) {
+                showGlobalSnackBar('✓ Node registered successfully!', isSuccess: true);
+              } else {
+                final error = kadenaService.error ?? 'Unknown error';
+                debugPrint('Registration failed: $error');
+                
+                // If node already exists, it's actually a success
+                if (error.toLowerCase().contains('already exists')) {
+                  showGlobalSnackBar('✓ Node already registered!', isSuccess: true);
+                } else {
+                  showGlobalSnackBar('Registration failed: $error', isError: true);
+                }
+              }
+            } catch (e) {
+              debugPrint('Node registration error: $e');
+              showGlobalSnackBar('Registration error: ${e.toString().split('\n').first}', isError: true);
+            }
+          } else {
+            debugPrint('Cannot register: node not running or nodeInfo null');
+            debugPrint('  isRunning: ${nodeService.isRunning}');
+            debugPrint('  nodeInfo: ${nodeService.nodeInfo}');
+          }
         }).catchError((e) {
           debugPrint('Failed to auto-start node: $e');
         });

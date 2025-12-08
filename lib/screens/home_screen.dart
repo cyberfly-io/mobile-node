@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../services/node_service.dart';
 import '../services/wallet_service.dart';
+import '../services/kadena_service.dart';
 import '../widgets/stat_card.dart';
 import '../widgets/status_indicator.dart';
 import '../widgets/peer_list.dart';
@@ -18,6 +19,11 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late AnimationController _pulseController;
+  
+  // Balance and staking state
+  double? _cflyBalance;
+  NodeStakeInfo? _stakeInfo;
+  bool _isLoadingBalance = false;
 
   @override
   void initState() {
@@ -26,6 +32,45 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       vsync: this,
       duration: const Duration(seconds: 2),
     )..repeat(reverse: true);
+    
+    // Load balance and staking info after frame is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadBalanceAndStaking();
+    });
+  }
+
+  Future<void> _loadBalanceAndStaking() async {
+    final walletService = context.read<WalletService>();
+    final kadenaService = context.read<KadenaService>();
+    
+    if (!walletService.hasWallet) return;
+    
+    setState(() => _isLoadingBalance = true);
+    
+    try {
+      final account = walletService.account;
+      final publicKey = walletService.publicKey;
+      
+      // Load balance and stake info in parallel
+      final results = await Future.wait([
+        kadenaService.getCFLYBalance(account),
+        if (publicKey != null) kadenaService.getNodeStake(publicKey),
+      ]);
+      
+      if (mounted) {
+        setState(() {
+          _cflyBalance = results[0] as double?;
+          if (results.length > 1) {
+            _stakeInfo = results[1] as NodeStakeInfo?;
+          }
+          _isLoadingBalance = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingBalance = false);
+      }
+    }
   }
 
   @override
@@ -44,17 +89,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       body: Stack(
         children: [
           // Cyberpunk animated background with matrix rain (dark mode only)
+          // Wrapped in RepaintBoundary to isolate repaints
           if (isDark) ...[
-            const MatrixRainBackground(
-              columns: 15,
-              speed: 0.8,
-              opacity: 0.1,
+            const RepaintBoundary(
+              child: MatrixRainBackground(
+                columns: 15,
+                speed: 0.8,
+                opacity: 0.1,
+              ),
             ),
 
             // Hex grid overlay
-            const HexGridBackground(
-              hexSize: 50,
-              opacity: 0.05,
+            const RepaintBoundary(
+              child: HexGridBackground(
+                hexSize: 50,
+                opacity: 0.05,
+              ),
             ),
           ],
 
@@ -257,9 +307,135 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ),
             ],
           ),
+          
+          const SizedBox(height: 16),
+          
+          // CFLY Balance and Staking Status row
+          Row(
+            children: [
+              // CFLY Balance
+              Expanded(
+                child: _buildBalanceItem(
+                  context,
+                  label: 'CFLY BALANCE',
+                  value: _isLoadingBalance 
+                      ? '...' 
+                      : _cflyBalance != null 
+                          ? _formatBalance(_cflyBalance!)
+                          : '0.00',
+                  icon: Icons.token,
+                  color: primaryColor,
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Staking Status
+              Expanded(
+                child: _buildBalanceItem(
+                  context,
+                  label: 'STAKING',
+                  value: _isLoadingBalance 
+                      ? '...' 
+                      : _stakeInfo?.active == true 
+                          ? '${(_stakeInfo!.amount ?? 50000).toStringAsFixed(0)} CFLY'
+                          : 'Not Staked',
+                  icon: Icons.lock,
+                  color: _stakeInfo?.active == true 
+                      ? CyberTheme.success(context)
+                      : CyberTheme.textDim(context),
+                  isActive: _stakeInfo?.active == true,
+                ),
+              ),
+            ],
+          ),
+          
+          // Refresh button
+          const SizedBox(height: 12),
+          Center(
+            child: TextButton.icon(
+              onPressed: _isLoadingBalance ? null : _loadBalanceAndStaking,
+              icon: _isLoadingBalance 
+                  ? SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: primaryColor,
+                      ),
+                    )
+                  : Icon(Icons.refresh, size: 14, color: primaryColor),
+              label: Text(
+                'Refresh',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: primaryColor,
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  Widget _buildBalanceItem(
+    BuildContext context, {
+    required String label,
+    required String value,
+    required IconData icon,
+    required Color color,
+    bool isActive = true,
+  }) {
+    final isDark = CyberTheme.isDark(context);
+    
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(isDark ? 0.1 : 0.05),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: color.withOpacity(0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 14, color: color),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: CyberTheme.textDim(context),
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: isActive ? color : CyberTheme.textDim(context),
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatBalance(double balance) {
+    if (balance >= 1000000) {
+      return '${(balance / 1000000).toStringAsFixed(2)}M';
+    } else if (balance >= 1000) {
+      return '${(balance / 1000).toStringAsFixed(2)}K';
+    }
+    return balance.toStringAsFixed(2);
   }
 
   Widget _buildStatsGrid(BuildContext context, NodeService nodeService) {

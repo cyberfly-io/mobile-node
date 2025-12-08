@@ -3,6 +3,7 @@
 //! This module exposes Rust functions to Flutter via FFI.
 
 use std::sync::Arc;
+use std::io::Write;
 use once_cell::sync::OnceCell;
 use parking_lot::RwLock;
 use tokio::runtime::Runtime;
@@ -115,16 +116,22 @@ pub fn init_logging() {
     {
         android_logger::init_once(
             android_logger::Config::default()
-                .with_max_level(log::LevelFilter::Debug)
-                .with_tag("CyberflyRust"),
+                .with_max_level(log::LevelFilter::Warn)
+                .with_tag("CyberflyRust")
+                .format(|buf, record| {
+                    // Only show warnings and errors, filter out iroh verbose logs
+                    if record.target().starts_with("iroh") {
+                        return Ok(());
+                    }
+                    writeln!(buf, "[{}] {}", record.level(), record.args())
+                }),
         );
-        info!(">>> RUST: android_logger initialized!");
     }
     
     #[cfg(not(target_os = "android"))]
     {
         let _ = tracing_subscriber::fmt()
-            .with_env_filter("info,iroh=warn,iroh_gossip=warn")
+            .with_env_filter("warn,cyberfly=info,iroh=error,iroh_gossip=error,iroh_net=error,quinn=error")
             .try_init();
     }
 }

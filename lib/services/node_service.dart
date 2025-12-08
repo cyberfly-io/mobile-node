@@ -397,42 +397,37 @@ class NodeService extends ChangeNotifier {
 
   void _startStatusPolling() {
     _statusTimer?.cancel();
-    // Normal polling at 1 second interval
-    _statusTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+    // Poll every 2 seconds - balance between responsiveness and efficiency
+    _statusTimer = Timer.periodic(const Duration(seconds: 2), (_) {
       _fetchStatusAndPeers();
     });
   }
 
   /// Fetch status and peers, only notify if changed
-  Future<void> _fetchStatusAndPeers() async {
-    debugPrint('>>> _fetchStatusAndPeers entered: isRunning=${_status.isRunning}, isStarting=$_isStarting');
+  void _fetchStatusAndPeers() {
+    if (!_status.isRunning && !_isStarting) return; // Skip if not running
     
-    debugPrint('>>> About to call rust_api.getNodeStatus()');
     try {
-      // Fetch status - NOW SYNC!
+      // Fetch status - sync call
       final statusDto = rust_api.getNodeStatus();
-      debugPrint('>>> Got status: connected=${statusDto.connectedPeers}, discovered=${statusDto.discoveredPeers}, gossip=${statusDto.gossipMessagesReceived}');
       
       // If status shows running but we didn't know, update our state
       if (statusDto.isRunning && !_status.isRunning) {
         _isStarting = false;
-        debugPrint('>>> Node is running (detected from status poll)');
       }
       
-      // Fetch peers if running - NOW SYNC!
+      // Fetch peers if running - sync call
       List<rust_api.PeerInfoDto> peersDto = [];
       if (statusDto.isRunning) {
         peersDto = rust_api.getPeers();
-        debugPrint('Peers fetched: ${peersDto.length}');
       }
       
-      // Check if status changed
+      // Check if status changed (excluding uptime which always changes)
       final newStatusHash = _computeStatusHash(statusDto);
       final statusChanged = newStatusHash != _lastStatusHash;
       if (statusChanged) {
         _status = NodeStatus.fromDto(statusDto);
         _lastStatusHash = newStatusHash;
-        debugPrint('Status changed, updating UI');
       }
       
       // Check if peers changed
@@ -441,7 +436,6 @@ class NodeService extends ChangeNotifier {
       if (peersChanged) {
         _peers = peersDto.map((p) => PeerInfo.fromDto(p)).toList();
         _lastPeersHash = newPeersHash;
-        debugPrint('Peers changed, updating UI');
       }
       
       // Only notify if something changed
@@ -449,16 +443,17 @@ class NodeService extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      debugPrint('Error fetching status/peers: $e');
+      // Silently ignore errors during polling
     }
   }
 
   int _computeStatusHash(rust_api.NodeStatusDto dto) {
+    // Exclude uptimeSeconds from hash - it changes every second
+    // Uptime is still displayed but won't trigger unnecessary rebuilds
     return Object.hash(
       dto.isRunning,
       dto.connectedPeers,
       dto.discoveredPeers,
-      dto.uptimeSeconds,
       dto.gossipMessagesReceived,
       dto.storageSizeBytes,
       dto.totalKeys,
@@ -531,8 +526,8 @@ class NodeService extends ChangeNotifier {
   }
 
   /// Force immediate refresh of status
-  Future<void> refreshStatus() async {
-    await _fetchStatusAndPeers();
+  void refreshStatus() {
+    _fetchStatusAndPeers();
   }
 
   @override
