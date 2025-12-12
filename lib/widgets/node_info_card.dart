@@ -5,8 +5,9 @@ import '../theme/theme.dart';
 
 class NodeInfoCard extends StatefulWidget {
   final NodeInfo nodeInfo;
+  final int uptimeSeconds;
 
-  const NodeInfoCard({super.key, required this.nodeInfo});
+  const NodeInfoCard({super.key, required this.nodeInfo, this.uptimeSeconds = 0});
 
   @override
   State<NodeInfoCard> createState() => _NodeInfoCardState();
@@ -135,9 +136,36 @@ class _NodeInfoCardState extends State<NodeInfoCard>
             color: const Color(0xFFFFD93D),
             copyable: false,
           ),
+
+          const SizedBox(height: 12),
+
+          // Uptime
+          _InfoRow(
+            label: 'Uptime',
+            value: _formatUptime(widget.uptimeSeconds),
+            fullValue: _formatUptime(widget.uptimeSeconds),
+            icon: Icons.timer_outlined,
+            color: const Color(0xFF00FF88),
+            copyable: false,
+          ),
         ],
       ),
     );
+  }
+
+  String _formatUptime(int seconds) {
+    if (seconds <= 0) return '0s';
+    final hours = seconds ~/ 3600;
+    final minutes = (seconds % 3600) ~/ 60;
+    final secs = seconds % 60;
+    
+    if (hours > 0) {
+      return '${hours}h ${minutes}m ${secs}s';
+    } else if (minutes > 0) {
+      return '${minutes}m ${secs}s';
+    } else {
+      return '${secs}s';
+    }
   }
 
   String _truncateId(String id) {

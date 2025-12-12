@@ -304,7 +304,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             index: 1,
                             child: Hero(
                               tag: 'node_info_card',
-                              child: NodeInfoCard(nodeInfo: nodeService.nodeInfo!),
+                              child: NodeInfoCard(
+                                nodeInfo: nodeService.nodeInfo!,
+                                uptimeSeconds: nodeService.status.uptimeSeconds,
+                              ),
                             ),
                           ),
 
@@ -345,8 +348,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             ),
                           ),
                           const SizedBox(height: 12),
+                          // Peer summary bar
+                          if (nodeService.peers.isNotEmpty)
+                            AnimatedListItem(
+                              index: 5,
+                              child: _buildPeerSummary(context, nodeService.peers),
+                            ),
+                          const SizedBox(height: 12),
                           AnimatedListItem(
-                            index: 5,
+                            index: 6,
                             child: nodeService.peers.isEmpty
                                 ? _buildEmptyPeersCard(context)
                                 : PeerList(peers: nodeService.peers),
@@ -1013,5 +1023,127 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
     }
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
+
+  Widget _buildPeerSummary(BuildContext context, List<PeerInfo> peers) {
+    final isDark = CyberTheme.isDark(context);
+    final primaryColor = CyberTheme.primary(context);
+    final successColor = CyberTheme.success(context);
+    
+    // Calculate stats
+    final mobileCount = peers.where((p) => p.isMobile).length;
+    final desktopCount = peers.length - mobileCount;
+    
+    // Get unique regions
+    final regions = <String>{};
+    for (final peer in peers) {
+      if (peer.region != null && peer.region!.isNotEmpty) {
+        regions.add(peer.region!);
+      }
+    }
+    
+    // Calculate average latency
+    final peersWithLatency = peers.where((p) => p.latencyMs != null).toList();
+    final avgLatency = peersWithLatency.isEmpty 
+        ? 0 
+        : (peersWithLatency.map((p) => p.latencyMs!).reduce((a, b) => a + b) / peersWithLatency.length).round();
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark 
+            ? Colors.white.withOpacity(0.05)
+            : CyberColorsLight.backgroundCard,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark 
+              ? Colors.white.withOpacity(0.1)
+              : CyberColorsLight.border,
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildPeerStat(
+            context,
+            icon: Icons.phone_android,
+            label: 'Mobile',
+            value: mobileCount.toString(),
+            color: primaryColor,
+          ),
+          Container(
+            width: 1,
+            height: 40,
+            color: isDark ? Colors.white.withOpacity(0.1) : CyberColorsLight.divider,
+          ),
+          _buildPeerStat(
+            context,
+            icon: Icons.computer,
+            label: 'Desktop',
+            value: desktopCount.toString(),
+            color: successColor,
+          ),
+          Container(
+            width: 1,
+            height: 40,
+            color: isDark ? Colors.white.withOpacity(0.1) : CyberColorsLight.divider,
+          ),
+          _buildPeerStat(
+            context,
+            icon: Icons.public,
+            label: 'Regions',
+            value: regions.length.toString(),
+            color: CyberTheme.warning(context),
+          ),
+          Container(
+            width: 1,
+            height: 40,
+            color: isDark ? Colors.white.withOpacity(0.1) : CyberColorsLight.divider,
+          ),
+          _buildPeerStat(
+            context,
+            icon: Icons.speed,
+            label: 'Avg Latency',
+            value: avgLatency > 0 ? '${avgLatency}ms' : 'N/A',
+            color: isDark ? CyberColors.neonMagenta : CyberColorsLight.primaryMagenta,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPeerStat(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    final isDark = CyberTheme.isDark(context);
+    final textColor = isDark ? Colors.white : CyberColorsLight.textPrimary;
+    final secondaryColor = isDark ? Colors.white.withOpacity(0.5) : CyberColorsLight.textSecondary;
+    
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: color, size: 20),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            color: textColor,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            color: secondaryColor,
+            fontSize: 10,
+          ),
+        ),
+      ],
+    );
   }
 }

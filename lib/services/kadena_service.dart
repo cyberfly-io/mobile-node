@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 import 'package:kadena_dart_sdk/kadena_dart_sdk.dart';
 import 'wallet_service.dart';
@@ -313,9 +314,15 @@ class KadenaService extends ChangeNotifier {
 
   /// Get node info from smart contract
   Future<NodeRegistrationStatus?> getNodeInfo(String peerId) async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
+    // Only notify if not already loading to avoid setState during build
+    if (!_isLoading) {
+      _isLoading = true;
+      _error = null;
+      // Use addPostFrameCallback to safely notify listeners
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        notifyListeners();
+      });
+    }
 
     try {
       final code = '(${config.contractModule}.get-node "$peerId")';

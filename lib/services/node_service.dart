@@ -10,26 +10,38 @@ import 'background_service.dart';
 /// Peer info model for UI
 class PeerInfo {
   final String nodeId;
+  final String publicKey;
   final DateTime lastSeen;
   final String? address;
+  final String? region;
+  final String? version;
   final bool isConnected;
   final int? latencyMs;
+  final bool isMobile;
 
   PeerInfo({
     required this.nodeId,
+    required this.publicKey,
     required this.lastSeen,
     this.address,
+    this.region,
+    this.version,
     this.isConnected = false,
     this.latencyMs,
+    this.isMobile = false,
   });
 
   factory PeerInfo.fromDto(rust_api.PeerInfoDto dto) {
     return PeerInfo(
       nodeId: dto.nodeId,
+      publicKey: dto.publicKey,
       lastSeen: DateTime.now(), // Connected now
       address: dto.address,
+      region: dto.region,
+      version: dto.version,
       isConnected: true,
       latencyMs: dto.latencyMs?.toInt(),
+      isMobile: dto.isMobile,
     );
   }
 }

@@ -58,6 +58,7 @@ class _PeerTile extends StatelessWidget {
     final secondaryTextColor = isDarkMode 
         ? Colors.white.withOpacity(0.5) 
         : CyberColorsLight.textSecondary;
+    final accentColor = isDarkMode ? const Color(0xFF00D9FF) : CyberColorsLight.primaryCyan;
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -68,12 +69,33 @@ class _PeerTile extends StatelessWidget {
           color: statusColor.withOpacity(0.2),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Center(
-          child: Icon(
-            peer.isConnected ? Icons.link : Icons.link_off,
-            color: statusColor,
-            size: 24,
-          ),
+        child: Stack(
+          children: [
+            Center(
+              child: Icon(
+                peer.isMobile ? Icons.phone_android : Icons.computer,
+                color: statusColor,
+                size: 24,
+              ),
+            ),
+            // Connection status indicator
+            Positioned(
+              right: 4,
+              bottom: 4,
+              child: Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: statusColor,
+                  border: Border.all(
+                    color: isDarkMode ? Colors.black : Colors.white,
+                    width: 1.5,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
       title: Row(
@@ -89,50 +111,80 @@ class _PeerTile extends StatelessWidget {
               ),
             ),
           ),
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: statusColor,
-              boxShadow: [
-                BoxShadow(
-                  color: statusColor.withOpacity(0.5),
-                  blurRadius: 6,
-                  spreadRadius: 1,
+          if (peer.region != null) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: accentColor.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                peer.region!,
+                style: TextStyle(
+                  color: accentColor,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
                 ),
-              ],
+              ),
             ),
-          ),
+          ],
         ],
       ),
       subtitle: Padding(
-        padding: const EdgeInsets.only(top: 4),
-        child: Row(
+        padding: const EdgeInsets.only(top: 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              Icons.access_time,
-              size: 12,
-              color: secondaryTextColor,
+            // First row: latency and version
+            Row(
+              children: [
+                Icon(Icons.speed, size: 12, color: secondaryTextColor),
+                const SizedBox(width: 4),
+                Text(
+                  peer.latencyMs != null ? '${peer.latencyMs}ms' : 'N/A',
+                  style: TextStyle(
+                    color: peer.latencyMs != null 
+                        ? _getLatencyColor(peer.latencyMs!, isDarkMode) 
+                        : secondaryTextColor,
+                    fontSize: 12,
+                    fontWeight: peer.latencyMs != null ? FontWeight.w500 : FontWeight.normal,
+                  ),
+                ),
+                if (peer.version != null) ...[
+                  const SizedBox(width: 12),
+                  Icon(Icons.tag, size: 12, color: secondaryTextColor),
+                  const SizedBox(width: 4),
+                  Text(
+                    'v${peer.version}',
+                    style: TextStyle(
+                      color: secondaryTextColor,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ],
             ),
-            const SizedBox(width: 4),
-            Text(
-              _formatLastSeen(peer.lastSeen),
-              style: TextStyle(
-                color: secondaryTextColor,
-                fontSize: 12,
+            // Second row: address if available
+            if (peer.address != null) ...[
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Icon(Icons.dns, size: 12, color: secondaryTextColor),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      peer.address!,
+                      style: TextStyle(
+                        color: secondaryTextColor,
+                        fontSize: 11,
+                        fontFamily: 'monospace',
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(width: 16),
-            Icon(Icons.speed, size: 12, color: secondaryTextColor),
-            const SizedBox(width: 4),
-            Text(
-              peer.latencyMs != null ? '${peer.latencyMs}ms' : 'N/A',
-              style: TextStyle(
-                color: secondaryTextColor,
-                fontSize: 12,
-              ),
-            ),
+            ],
           ],
         ),
       ),
@@ -154,6 +206,16 @@ class _PeerTile extends StatelessWidget {
         },
       ),
     );
+  }
+
+  Color _getLatencyColor(int latencyMs, bool isDarkMode) {
+    if (latencyMs < 50) {
+      return isDarkMode ? const Color(0xFF00FF88) : CyberColorsLight.online;
+    } else if (latencyMs < 150) {
+      return isDarkMode ? const Color(0xFFFFD93D) : CyberColorsLight.warning;
+    } else {
+      return isDarkMode ? const Color(0xFFFF6B6B) : Colors.red;
+    }
   }
 
   String _truncateNodeId(String nodeId) {
