@@ -52,10 +52,7 @@ class _WalletSetupScreenState extends State<WalletSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final backgroundColor = isDarkMode 
-        ? const Color(0xFF0A0E21) 
-        : CyberColorsLight.backgroundLight;
+    final backgroundColor = CyberTheme.background(context);
     
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -84,13 +81,11 @@ class _WalletSetupScreenState extends State<WalletSetupScreen> {
 
   Widget _buildWelcomeStep() {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final cardColor = isDarkMode 
-        ? const Color(0xFF1D1E33) 
-        : CyberColorsLight.cardBackground;
-    final textColor = isDarkMode ? Colors.white : CyberColorsLight.textPrimary;
-    final secondaryTextColor = isDarkMode 
-        ? Colors.white.withValues(alpha: 0.7) 
-        : CyberColorsLight.textSecondary;
+    final primary = CyberTheme.primary(context);
+    final onPrimary = isDarkMode ? Colors.black : Colors.white;
+    final cardColor = CyberTheme.card(context);
+    final textColor = CyberTheme.textPrimary(context);
+    final secondaryTextColor = CyberTheme.textSecondary(context);
     
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -102,7 +97,7 @@ class _WalletSetupScreenState extends State<WalletSetupScreen> {
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF00D9FF).withValues(alpha: 0.3),
+                color: primary.withValues(alpha: 0.25),
                 blurRadius: 20,
                 spreadRadius: 2,
               ),
@@ -138,8 +133,8 @@ class _WalletSetupScreenState extends State<WalletSetupScreen> {
           child: ElevatedButton(
             onPressed: _generateNewWallet,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF00D9FF),
-              foregroundColor: Colors.black,
+              backgroundColor: primary,
+              foregroundColor: onPrimary,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -157,8 +152,8 @@ class _WalletSetupScreenState extends State<WalletSetupScreen> {
           child: OutlinedButton(
             onPressed: () => setState(() => _showRestoreOption = true),
             style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFF00D9FF),
-              side: const BorderSide(color: Color(0xFF00D9FF)),
+              foregroundColor: primary,
+              side: BorderSide(color: primary),
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),

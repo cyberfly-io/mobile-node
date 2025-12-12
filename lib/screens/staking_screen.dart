@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../services/kadena_service.dart';
 import '../services/wallet_service.dart';
 import '../theme/theme.dart';
+import '../widgets/empty_state.dart';
 import 'node_details_screen.dart';
 
 class StakingScreen extends StatefulWidget {
@@ -65,13 +66,13 @@ class _StakingScreenState extends State<StakingScreen> {
   @override
   Widget build(BuildContext context) {
     final walletService = context.watch<WalletService>();
-    final isDark = CyberTheme.isDark(context);
 
     return Scaffold(
-      backgroundColor: isDark ? CyberColors.backgroundDark : CyberColorsLight.backgroundLight,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text('My Node'),
-        backgroundColor: Colors.transparent,
+        backgroundColor: CyberTheme.appBarBackground(context),
+        foregroundColor: CyberTheme.textPrimary(context),
         elevation: 0,
         actions: [
           IconButton(
@@ -84,7 +85,7 @@ class _StakingScreenState extends State<StakingScreen> {
                       color: CyberTheme.primary(context),
                     ),
                   )
-                : const Icon(Icons.refresh),
+                : Icon(Icons.refresh, color: CyberTheme.primary(context)),
             onPressed: _isLoading ? null : _loadData,
           ),
         ],
@@ -140,7 +141,7 @@ class _StakingScreenState extends State<StakingScreen> {
             icon: Icons.trending_up,
             label: 'APY',
             value: _apy != null ? '${_apy!.toStringAsFixed(2)}%' : '--',
-            color: Colors.green,
+            color: CyberTheme.success(context),
           ),
           _buildStatItem(
             context,
@@ -156,7 +157,7 @@ class _StakingScreenState extends State<StakingScreen> {
             value: _stakeStats != null 
                 ? '${(_stakeStats!.totalStakedAmount / 1000).toStringAsFixed(0)}K'
                 : '--',
-            color: Colors.orange,
+            color: CyberTheme.warning(context),
           ),
         ],
       ),
@@ -201,6 +202,7 @@ class _StakingScreenState extends State<StakingScreen> {
 
   Widget _buildConnectWalletPrompt(BuildContext context) {
     final isDark = CyberTheme.isDark(context);
+    final onPrimary = isDark ? Colors.black : Colors.white;
     
     return Center(
       child: Column(
@@ -235,7 +237,7 @@ class _StakingScreenState extends State<StakingScreen> {
             label: const Text('Create Wallet'),
             style: ElevatedButton.styleFrom(
               backgroundColor: CyberTheme.primary(context),
-              foregroundColor: isDark ? Colors.black : Colors.white,
+              foregroundColor: onPrimary,
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -249,10 +251,14 @@ class _StakingScreenState extends State<StakingScreen> {
 
   Widget _buildNodeContent(BuildContext context) {
     if (_isLoading) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(48),
-          child: CircularProgressIndicator(),
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          children: [
+            LoadingCardSkeleton(),
+            SizedBox(height: 12),
+            LoadingCardSkeleton(),
+          ],
         ),
       );
     }
@@ -265,34 +271,10 @@ class _StakingScreenState extends State<StakingScreen> {
   }
 
   Widget _buildNoNodeFound(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.dns_outlined,
-            size: 64,
-            color: CyberTheme.textDim(context),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Node Not Registered',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: CyberTheme.textPrimary(context),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Your wallet does not have a registered node',
-            style: TextStyle(
-              fontSize: 14,
-              color: CyberTheme.textSecondary(context),
-            ),
-          ),
-        ],
-      ),
+    return const EmptyState(
+      icon: Icons.dns_outlined,
+      title: 'Node Not Registered',
+      subtitle: 'Your wallet does not have a registered node.\nStart your node to register it on the network.',
     );
   }
 
@@ -302,18 +284,19 @@ class _StakingScreenState extends State<StakingScreen> {
     NodeStakeInfo? stakeInfo,
     String? publicKey,
   ) {
-    final isDark = CyberTheme.isDark(context);
     final isActive = node.isActive;
     final isStaked = stakeInfo?.active == true;
     final nodeId = node.peerId ?? publicKey;
+    final warningColor = CyberTheme.warning(context);
+    final successColor = CyberTheme.success(context);
 
     return Card(
-      color: isDark ? CyberColors.backgroundCard : CyberColorsLight.backgroundCard,
+      color: CyberTheme.card(context),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
           color: isStaked 
-              ? Colors.orange.withOpacity(0.5)
+              ? warningColor.withOpacity(0.5)
               : CyberTheme.primary(context).withOpacity(0.2),
         ),
       ),
@@ -357,7 +340,13 @@ class _StakingScreenState extends State<StakingScreen> {
                             if (nodeId != null) {
                               Clipboard.setData(ClipboardData(text: nodeId));
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Peer ID copied')),
+                                SnackBar(
+                                  content: Text(
+                                    'Peer ID copied',
+                                    style: TextStyle(color: CyberTheme.textPrimary(context)),
+                                  ),
+                                  backgroundColor: CyberTheme.card(context),
+                                ),
                               );
                             }
                           },
@@ -381,11 +370,11 @@ class _StakingScreenState extends State<StakingScreen> {
                     children: [
                       _buildStatusBadge(
                         isActive ? 'Active' : 'Inactive',
-                        isActive ? Colors.green : Colors.grey,
+                        isActive ? successColor : CyberTheme.textDim(context),
                       ),
                       if (isStaked) ...[
                         const SizedBox(height: 4),
-                        _buildStatusBadge('Staked', Colors.orange),
+                        _buildStatusBadge('Staked', warningColor),
                       ],
                     ],
                   ),
@@ -409,17 +398,17 @@ class _StakingScreenState extends State<StakingScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.1),
+                    color: warningColor.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.bolt, color: Colors.orange, size: 20),
+                      Icon(Icons.bolt, color: warningColor, size: 20),
                       const SizedBox(width: 8),
                       Text(
                         'Staked: ${(stakeInfo.amount ?? 50000).toStringAsFixed(0)} CFLY',
-                        style: const TextStyle(
-                          color: Colors.orange,
+                        style: TextStyle(
+                          color: warningColor,
                           fontWeight: FontWeight.bold,
                         ),
                       ),

@@ -899,6 +899,77 @@ class KadenaService extends ChangeNotifier {
     }
   }
 
+  /// Transfer CFLY tokens to another account
+  Future<bool> transferCFLY({
+    required String toAccount,
+    required double amount,
+  }) async {
+    if (_account == null || _publicKey == null) {
+      _error = 'Wallet not initialized';
+      return false;
+    }
+
+    if (amount <= 0) {
+      _error = 'Amount must be greater than 0';
+      return false;
+    }
+
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      // Use coin.transfer for fungible token transfer
+      final code = '(free.cyberfly_token.transfer "$_account" "$toAccount" $amount)';
+
+      final capabilities = [
+        DappCapp(
+          role: 'Gas',
+          description: 'Pay gas fees',
+          cap: Capability(
+            name: '${config.gasStation}.GAS_PAYER',
+            args: [
+              'cyberfly-account-gas',
+              {'int': 1},
+              1.0,
+            ],
+          ),
+        ),
+        DappCapp(
+          role: 'Transfer',
+          description: 'Transfer CFLY tokens',
+          cap: Capability(
+            name: 'free.cyberfly_token.TRANSFER',
+            args: [_account, toAccount, amount],
+          ),
+        ),
+      ];
+
+      final requestKey = await _sendCommand(
+        pactCode: code,
+        capabilities: capabilities,
+      );
+
+      if (requestKey == null) {
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
+      _lastTxHash = requestKey;
+      final success = await _pollTransaction(requestKey);
+
+      _isLoading = false;
+      notifyListeners();
+      return success;
+    } catch (e) {
+      _error = 'Failed to transfer: $e';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
   /// Helper to parse Kadena number formats
   double? _parseKadenaNumber(dynamic value) {
     if (value == null) return null;

@@ -47,6 +47,8 @@ const DATA_TOPIC: &[u8; 32] = b"decentralized-db-data-v1-iroh!!!";
 const DISCOVERY_TOPIC: &[u8; 32] = b"decentralized-db-discovery-iroh!";
 const SYNC_TOPIC: &[u8; 32] = b"decentralized-db-sync-v1-iroh!!!";
 const PEER_DISCOVERY_TOPIC: &[u8; 32] = b"decentralized-peer-list-v1-iroh!";
+/// Improved discovery topic (postcard + ed25519) - matches cyberfly-rust-node v2
+const IMPROVED_DISCOVERY_TOPIC: &[u8; 32] = b"cyberfly-discovery-v2-postcard!!";
 
 /// Node version
 const NODE_VERSION: &str = "cyberfly-mobile-0.1.0";
@@ -425,7 +427,8 @@ impl CyberflyNode {
         let discovery_topic_id = TopicId::from_bytes(*DISCOVERY_TOPIC);
         let sync_topic_id = TopicId::from_bytes(*SYNC_TOPIC);
         let peer_discovery_topic_id = TopicId::from_bytes(*PEER_DISCOVERY_TOPIC);
-        log_info!(">>> Topic IDs created successfully");
+        let improved_discovery_topic_id = TopicId::from_bytes(*IMPROVED_DISCOVERY_TOPIC);
+        log_info!(">>> Topic IDs created successfully (including v2 improved discovery)");
 
         // Gossip senders for each topic
         log_info!(">>> Creating gossip senders");
@@ -433,6 +436,7 @@ impl CyberflyNode {
         let discovery_sender: Arc<Mutex<Option<GossipSender>>> = Arc::new(Mutex::new(None));
         let sync_sender: Arc<Mutex<Option<GossipSender>>> = Arc::new(Mutex::new(None));
         let peer_discovery_sender: Arc<Mutex<Option<GossipSender>>> = Arc::new(Mutex::new(None));
+        let improved_discovery_sender: Arc<Mutex<Option<GossipSender>>> = Arc::new(Mutex::new(None));
         log_info!(">>> Gossip senders created");
 
         let peer_ids_str: Vec<String> = bootstrap_peers.iter().map(|p| p.fmt_short().to_string()).collect();
@@ -810,9 +814,89 @@ impl CyberflyNode {
             });
         }
 
+        // Subscribe to improved discovery topic (v2 postcard format) - matches cyberfly-rust-node
+        // This allows mobile nodes to participate in the newer discovery protocol
+        if let Ok(topic_handle) = gossip.subscribe(improved_discovery_topic_id, bootstrap_peers.clone()).await {
+            let (sender, mut receiver) = topic_handle.split();
+            *improved_discovery_sender.lock().await = Some(sender);
+            
+            let peer_registry_clone = peer_registry.clone();
+            let shared_state_clone = shared_state.clone();
+            let event_tx_clone = event_tx.clone();
+            let gossip_clone = gossip.clone();
+            let node_id_clone = node_id.clone();
+
+            tokio::spawn(async move {
+                log_info!("✓ Improved discovery (v2 postcard) listener started");
+                while let Some(event) = receiver.next().await {
+                    match event {
+                        Ok(GossipEvent::Received(msg)) => {
+                            // Try to decode postcard-serialized discovery message
+                            // The upstream format is: SignedDiscoveryMessage { from: [u8;32], data: Vec<u8>, signature: [u8;64] }
+                            // For now, we just track that we received something from this peer
+                            let from_peer = msg.delivered_from.to_string();
+                            
+                            // Skip our own messages
+                            if from_peer == node_id_clone {
+                                continue;
+                            }
+                            
+                            // Register peer from improved discovery
+                            let is_new = peer_registry_clone.write().register_connected_peer(from_peer.clone());
+                            
+                            // Update peer counts
+                            let peer_count = peer_registry_clone.read().peer_count();
+                            {
+                                let mut state = shared_state_clone.write();
+                                state.discovered_peers = peer_count;
+                                state.connected_peers = peer_count;
+                            }
+                            
+                            if is_new {
+                                log_info!("📡 Discovered peer via improved discovery (v2): {}", from_peer);
+                                let _ = event_tx_clone.send(NodeEvent::PeerDiscovered {
+                                    peer_id: from_peer.clone(),
+                                    address: None,
+                                }).await;
+                                
+                                // Try to connect to this peer on data topic
+                                if let Ok(peer_endpoint_id) = from_peer.parse::<EndpointId>() {
+                                    let _ = gossip_clone.subscribe(
+                                        TopicId::from_bytes(*DATA_TOPIC),
+                                        vec![peer_endpoint_id],
+                                    ).await;
+                                }
+                            }
+                        }
+                        Ok(GossipEvent::NeighborUp(peer_id)) => {
+                            let peer_str = peer_id.to_string();
+                            log_info!("Improved discovery: NeighborUp {}", peer_str);
+                            peer_registry_clone.write().register_connected_peer(peer_str);
+                            let peer_count = peer_registry_clone.read().peer_count();
+                            {
+                                let mut state = shared_state_clone.write();
+                                state.discovered_peers = peer_count;
+                                state.connected_peers = peer_count;
+                            }
+                        }
+                        Ok(GossipEvent::NeighborDown(peer_id)) => {
+                            log_info!("Improved discovery: NeighborDown {}", peer_id);
+                        }
+                        Ok(GossipEvent::Lagged) => {
+                            log_warn!("Improved discovery gossip lagged");
+                        }
+                        Err(e) => {
+                            log_warn!("Improved discovery gossip error: {}", e);
+                        }
+                    }
+                }
+            });
+        }
+
         // Periodic announcement task
         let discovery_sender_announce = discovery_sender.clone();
         let peer_discovery_sender_announce = peer_discovery_sender.clone();
+        let improved_discovery_sender_announce = improved_discovery_sender.clone();
         let node_id_announce = node_id.clone();
         let public_key_announce = public_key.clone();
         let signing_key_announce = signing_key.clone();
@@ -853,6 +937,59 @@ impl CyberflyNode {
                     let disc_msg = DiscoveryMessage::PeerList(list_msg);
                     if let Some(sender) = peer_discovery_sender_announce.lock().await.as_ref() {
                         let _ = sender.broadcast(Bytes::from(serde_json::to_vec(&disc_msg).unwrap())).await;
+                    }
+                }
+                
+                // Also broadcast on improved discovery topic (v2 postcard format)
+                // This uses postcard binary serialization matching cyberfly-rust-node
+                // Format: SignedDiscoveryMessage { from, data, signature }
+                if let Some(sender) = improved_discovery_sender_announce.lock().await.as_ref() {
+                    // Create a simple discovery node announcement compatible with v2 format
+                    // The upstream expects postcard-serialized DiscoveryNode
+                    #[derive(serde::Serialize)]
+                    struct DiscoveryNodeV2 {
+                        name: String,
+                        node_id: String,
+                        count: u32,
+                        region: String,
+                        capabilities: NodeCapabilities,
+                    }
+                    
+                    // We use a simple counter that increments each announcement
+                    static ANNOUNCE_COUNT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+                    let count = ANNOUNCE_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    
+                    let node = DiscoveryNodeV2 {
+                        name: format!("cyberfly-mobile-{}", &node_id_announce[..8]),
+                        node_id: node_id_announce.clone(),
+                        count,
+                        region: region_announce.clone().unwrap_or_else(|| "unknown".to_string()),
+                        capabilities: NodeCapabilities::mobile_node(),
+                    };
+                    
+                    // Serialize with postcard
+                    if let Ok(data) = postcard::to_stdvec(&node) {
+                        // Sign the data
+                        use ed25519_dalek::Signer;
+                        let signature = signing_key_announce.sign(&data);
+                        
+                        // Create signed message
+                        #[derive(serde::Serialize)]
+                        struct SignedDiscoveryMessage {
+                            from: Vec<u8>,
+                            data: Vec<u8>,
+                            signature: Vec<u8>,
+                        }
+                        
+                        let signed_msg = SignedDiscoveryMessage {
+                            from: signing_key_announce.verifying_key().to_bytes().to_vec(),
+                            data,
+                            signature: signature.to_bytes().to_vec(),
+                        };
+                        
+                        if let Ok(encoded) = postcard::to_stdvec(&signed_msg) {
+                            let _ = sender.broadcast(Bytes::from(encoded)).await;
+                        }
                     }
                 }
                 

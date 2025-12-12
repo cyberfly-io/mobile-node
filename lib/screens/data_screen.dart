@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../src/rust/api.dart' as rust_api;
 import '../theme/theme.dart';
+import '../widgets/empty_state.dart';
 
 /// Model class for database operation display
 class DbOperation {
@@ -151,33 +152,30 @@ class _DataScreenState extends State<DataScreen> {
   }
 
   Future<void> _deleteEntry(DbOperation op) async {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: isDarkMode 
-            ? const Color(0xFF1D1E33) 
-            : CyberColorsLight.cardBackground,
+        backgroundColor: CyberTheme.card(context),
         title: Text(
           'Delete Entry', 
           style: TextStyle(
-            color: isDarkMode ? Colors.white : CyberColorsLight.textPrimary,
+            color: CyberTheme.textPrimary(context),
           ),
         ),
         content: Text(
           'Are you sure you want to delete "${op.key}" from "${op.dbName}"?',
           style: TextStyle(
-            color: isDarkMode ? Colors.white70 : CyberColorsLight.textSecondary,
+            color: CyberTheme.textSecondary(context),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text('Cancel', style: TextStyle(color: CyberTheme.textSecondary(context))),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: CyberTheme.error(context)),
             child: const Text('Delete'),
           ),
         ],
@@ -192,13 +190,19 @@ class _DataScreenState extends State<DataScreen> {
             _results.removeWhere((r) => r.opId == op.opId);
           });
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Entry deleted')),
+            SnackBar(
+              content: Text('Entry deleted', style: TextStyle(color: CyberTheme.textPrimary(context))),
+              backgroundColor: CyberTheme.card(context),
+            ),
           );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to delete: $e')),
+            SnackBar(
+              content: Text('Failed to delete: $e', style: TextStyle(color: CyberTheme.textPrimary(context))),
+              backgroundColor: CyberTheme.error(context),
+            ),
           );
         }
       }
@@ -422,7 +426,7 @@ class _DataScreenState extends State<DataScreen> {
                     ),
 
                   // Results
-                  if (_results.isNotEmpty) ...[
+                  if (_results.isNotEmpty && !_isLoading) ...[
                     const SizedBox(height: 16),
                     Text(
                       'Results (${_results.length})',
@@ -433,29 +437,29 @@ class _DataScreenState extends State<DataScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    ..._results.map((item) => _buildResultCard(item)),
+                    ..._results.asMap().entries.map((entry) => AnimatedListItem(
+                      index: entry.key,
+                      child: _buildResultCard(entry.value),
+                    )),
                   ],
 
                   // Empty state
                   if (_results.isEmpty && _error == null && !_isLoading)
-                    Container(
-                      padding: const EdgeInsets.all(32),
+                    const EmptyState(
+                      icon: Icons.storage_outlined,
+                      title: 'No Data Yet',
+                      subtitle: 'Enter a database name to query data\nor tap "All" to see all stored data',
+                    ),
+
+                  // Loading state
+                  if (_isLoading)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
                       child: Column(
                         children: [
-                          Icon(
-                            Icons.storage_outlined,
-                            size: 64,
-                            color: CyberTheme.textDim(context),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Enter a database name to query data\nor tap "All" to see all stored data',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: CyberTheme.textSecondary(context),
-                              fontSize: 14,
-                            ),
-                          ),
+                          LoadingCardSkeleton(),
+                          LoadingCardSkeleton(),
+                          LoadingCardSkeleton(),
                         ],
                       ),
                     ),

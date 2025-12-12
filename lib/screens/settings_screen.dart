@@ -63,8 +63,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             SliverPadding(
               padding: const EdgeInsets.all(16),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
+              sliver: _isLoading
+                  ? SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 48),
+                        child: Center(
+                          child: CircularProgressIndicator(color: CyberTheme.primary(context)),
+                        ),
+                      ),
+                    )
+                  : SliverList(
+                      delegate: SliverChildListDelegate([
                   // Node settings
                   _buildSectionHeader(context, 'Node Settings'),
                   _buildSettingsCard(context, [
@@ -92,8 +101,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         setState(() => _runInBackground = value);
                         _savePreference('runInBackground', value);
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Restart app to apply background service change'),
+                          SnackBar(
+                            content: Text(
+                              'Restart app to apply background service change',
+                              style: TextStyle(color: CyberTheme.textPrimary(context)),
+                            ),
+                            backgroundColor: CyberTheme.card(context),
                           ),
                         );
                       },
@@ -158,7 +171,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         'Remove PIN',
                         'Remove PIN protection',
                         Icons.lock_open,
-                        Colors.orange,
+                        CyberTheme.warning(context),
                         () => _removePin(context, authService),
                       ),
                     ],
@@ -174,7 +187,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       'View Recovery Phrase',
                       'Backup your wallet recovery phrase',
                       Icons.key,
-                      Colors.orange,
+                      CyberTheme.warning(context),
                       () => _showRecoveryPhrase(context, walletService, authService),
                     ),
                     _buildDivider(context),
@@ -235,21 +248,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 24),
 
                   // Danger zone
-                  _buildSectionHeader(context, 'Danger Zone', color: Colors.red),
+                  _buildSectionHeader(context, 'Danger Zone', color: CyberTheme.error(context)),
                   _buildSettingsCard(context, [
                     _buildActionTile(
                       context,
                       'Reset Wallet',
                       'Delete wallet and all local data',
                       Icons.delete_forever,
-                      Colors.red,
+                      CyberTheme.error(context),
                       () => _showResetConfirmation(context, walletService),
                     ),
-                  ], borderColor: Colors.red.withOpacity(0.3)),
+                  ], borderColor: CyberTheme.error(context).withOpacity(0.3)),
 
                   const SizedBox(height: 40),
-                ]),
-              ),
+                      ]),
+                    ),
             ),
           ],
         ),
@@ -516,7 +529,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         onPressed: () {
           Clipboard.setData(ClipboardData(text: value));
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Copied to clipboard')),
+            SnackBar(
+              content: Text(
+                'Copied to clipboard',
+                style: TextStyle(color: CyberTheme.textPrimary(context)),
+              ),
+              backgroundColor: CyberTheme.card(context),
+            ),
           );
         },
       ),
@@ -529,6 +548,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final textPrimary = CyberTheme.textPrimary(context);
     final successColor = CyberTheme.success(context);
     final errorColor = CyberTheme.error(context);
+    final warningColor = CyberTheme.warning(context);
     final isDark = CyberTheme.isDark(context);
     
     return ListTile(
@@ -538,7 +558,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           color: isRunning 
             ? successColor.withOpacity(isDark ? 0.2 : 0.1)
             : isStarting
-              ? Colors.orange.withOpacity(isDark ? 0.2 : 0.1)
+              ? warningColor.withOpacity(isDark ? 0.2 : 0.1)
               : errorColor.withOpacity(isDark ? 0.2 : 0.1),
           borderRadius: BorderRadius.circular(8),
         ),
@@ -547,7 +567,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           color: isRunning 
             ? successColor
             : isStarting
-              ? Colors.orange
+              ? warningColor
               : errorColor,
           size: 20,
         ),
@@ -562,7 +582,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           color: isRunning 
             ? successColor
             : isStarting
-              ? Colors.orange
+              ? warningColor
               : errorColor.withOpacity(0.7),
           fontSize: 12,
         ),
@@ -573,7 +593,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             height: 24,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              color: Colors.orange,
+              color: CyberColors.neonYellow,
             ),
           )
             : ElevatedButton(
@@ -584,7 +604,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               backgroundColor: isRunning 
                 ? errorColor
                 : successColor,
-              foregroundColor: isRunning ? Colors.white : Colors.black,
+              foregroundColor: isDark ? Colors.black : Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               minimumSize: Size.zero,
             ),
@@ -638,9 +658,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!authenticated) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Authentication required to view recovery phrase'),
-              backgroundColor: Colors.red,
+            SnackBar(
+              content: Text(
+                'Authentication required to view recovery phrase',
+                style: TextStyle(color: CyberTheme.textPrimary(context)),
+              ),
+              backgroundColor: CyberTheme.error(context),
             ),
           );
         }
@@ -654,7 +677,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: CyberTheme.card(context),
-        title: const Text('⚠️ Warning', style: TextStyle(color: Colors.orange)),
+        title: Text('Warning', style: TextStyle(color: CyberTheme.warning(context))),
         content: Text(
           'Your recovery phrase gives full access to your wallet. Never share it with anyone.',
           style: TextStyle(color: CyberTheme.textPrimary(context)),
@@ -669,7 +692,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Navigator.pop(ctx);
               _displayRecoveryPhrase(context, walletService);
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: CyberTheme.warning(context),
+              foregroundColor: CyberTheme.isDark(context) ? Colors.black : Colors.white,
+            ),
             child: const Text('Show'),
           ),
         ],
@@ -713,7 +739,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               decoration: BoxDecoration(
                 color: CyberTheme.background(context),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                border: Border.all(color: CyberTheme.warning(context).withOpacity(0.3)),
               ),
               child: Wrap(
                 spacing: 8,
@@ -745,7 +771,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onPressed: () {
                   Clipboard.setData(ClipboardData(text: mnemonic));
                   ScaffoldMessenger.of(ctx).showSnackBar(
-                    const SnackBar(content: Text('Recovery phrase copied')),
+                    SnackBar(
+                      content: Text(
+                        'Recovery phrase copied',
+                        style: TextStyle(color: CyberTheme.textPrimary(context)),
+                      ),
+                      backgroundColor: CyberTheme.card(context),
+                    ),
                   );
                 },
                 icon: const Icon(Icons.copy),
@@ -775,9 +807,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!authenticated) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Authentication required to delete wallet'),
-              backgroundColor: Colors.red,
+            SnackBar(
+              content: Text(
+                'Authentication required to delete wallet',
+                style: TextStyle(color: CyberTheme.textPrimary(context)),
+              ),
+              backgroundColor: CyberTheme.error(context),
             ),
           );
         }
@@ -791,7 +826,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: CyberTheme.card(context),
-        title: const Text('🚨 Reset Wallet', style: TextStyle(color: Colors.red)),
+        title: Text('Reset Wallet', style: TextStyle(color: CyberTheme.error(context))),
         content: Text(
           'This will permanently delete your wallet and all local data. '
           'Make sure you have backed up your recovery phrase. This action cannot be undone.',
@@ -830,7 +865,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 );
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: CyberTheme.error(context),
+              foregroundColor: CyberTheme.isDark(context) ? Colors.black : Colors.white,
+            ),
             child: const Text('Delete Everything'),
           ),
         ],

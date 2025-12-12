@@ -499,24 +499,36 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ],
           ),
           
-          // Refresh button
+          // Action buttons
           const SizedBox(height: 12),
           
-          // Stake/Unstake buttons
+          // Send and Stake buttons
           Row(
             children: [
+              // Send/Transfer button
               Expanded(
-                child: _stakeInfo?.active == true
-                    ? const SizedBox.shrink() // Hide unstake; already staked
-                    : _buildActionButton(
-                        context,
-                        label: 'Stake',
-                        icon: Icons.lock,
-                        color: CyberTheme.success(context),
-                        onPressed: _isLoadingBalance ? null : () => _showStakeDialog(context),
-                      ),
+                child: _buildActionButton(
+                  context,
+                  label: 'Send',
+                  icon: Icons.send,
+                  color: magentaColor,
+                  onPressed: _isLoadingBalance ? null : () => _showTransferDialog(context),
+                ),
               ),
               const SizedBox(width: 8),
+              // Stake button (only if not already staked)
+              if (_stakeInfo?.active != true)
+                Expanded(
+                  child: _buildActionButton(
+                    context,
+                    label: 'Stake',
+                    icon: Icons.lock,
+                    color: CyberTheme.success(context),
+                    onPressed: _isLoadingBalance ? null : () => _showStakeDialog(context),
+                  ),
+                ),
+              if (_stakeInfo?.active != true) const SizedBox(width: 8),
+              // Refresh button
               IconButton(
                 onPressed: _isLoadingBalance ? null : _loadBalanceAndStaking,
                 icon: _isLoadingBalance 
@@ -557,24 +569,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildIconButton(
-    BuildContext context, {
-    required IconData icon,
-    required Color color,
-    required String tooltip,
-    VoidCallback? onPressed,
-  }) {
-    return IconButton(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 20, color: color),
-      tooltip: tooltip,
-      style: IconButton.styleFrom(
-        side: BorderSide(color: color.withOpacity(0.5)),
-        padding: const EdgeInsets.all(8),
-      ),
-    );
-  }
-
   Future<void> _showStakeDialog(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -610,38 +604,207 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     }
   }
 
-  Future<void> _showUnstakeDialog(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
+  Future<void> _showTransferDialog(BuildContext context) async {
+    final recipientController = TextEditingController();
+    final amountController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    final isDark = CyberTheme.isDark(context);
+    final magentaColor = isDark ? CyberColors.neonMagenta : CyberColorsLight.primaryMagenta;
+    
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: CyberTheme.card(context),
-        title: Text(
-          'Unstake CFLY',
-          style: TextStyle(color: CyberTheme.textPrimary(context)),
+        title: Row(
+          children: [
+            Icon(Icons.send, color: magentaColor, size: 24),
+            const SizedBox(width: 12),
+            Text(
+              'Send CFLY',
+              style: TextStyle(color: CyberTheme.textPrimary(context)),
+            ),
+          ],
         ),
-        content: Text(
-          'Are you sure you want to unstake? '
-          'Your 50,000 CFLY will be returned to your account.',
-          style: TextStyle(color: CyberTheme.textSecondary(context)),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: recipientController,
+                style: TextStyle(
+                  color: CyberTheme.textPrimary(context),
+                  fontFamily: 'monospace',
+                  fontSize: 13,
+                ),
+                decoration: InputDecoration(
+                  labelText: 'Recipient Address',
+                  labelStyle: TextStyle(color: CyberTheme.textDim(context)),
+                  hintText: 'k:...',
+                  hintStyle: TextStyle(color: CyberTheme.textDim(context).withOpacity(0.5)),
+                  prefixIcon: Icon(Icons.person, color: magentaColor),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: magentaColor.withOpacity(0.3)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: magentaColor.withOpacity(0.3)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: magentaColor),
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter recipient address';
+                  }
+                  if (!value.startsWith('k:') || value.length < 66) {
+                    return 'Invalid Kadena address';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: amountController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                style: TextStyle(
+                  color: CyberTheme.textPrimary(context),
+                  fontFamily: 'monospace',
+                ),
+                decoration: InputDecoration(
+                  labelText: 'Amount',
+                  labelStyle: TextStyle(color: CyberTheme.textDim(context)),
+                  hintText: '0.00',
+                  hintStyle: TextStyle(color: CyberTheme.textDim(context).withOpacity(0.5)),
+                  prefixIcon: Icon(Icons.token, color: magentaColor),
+                  suffixText: 'CFLY',
+                  suffixStyle: TextStyle(
+                    color: magentaColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: magentaColor.withOpacity(0.3)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: magentaColor.withOpacity(0.3)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: magentaColor),
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter amount';
+                  }
+                  final amount = double.tryParse(value);
+                  if (amount == null || amount <= 0) {
+                    return 'Invalid amount';
+                  }
+                  if (_cflyBalance != null && amount > _cflyBalance!) {
+                    return 'Insufficient balance';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              // Balance hint
+              if (_cflyBalance != null)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Available: ${_formatBalance(_cflyBalance!)} CFLY',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: CyberTheme.textDim(context),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(context),
             child: Text('Cancel', style: TextStyle(color: CyberTheme.textDim(context))),
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
+          ElevatedButton.icon(
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.pop(context, {
+                  'recipient': recipientController.text.trim(),
+                  'amount': double.parse(amountController.text.trim()),
+                });
+              }
+            },
+            icon: const Icon(Icons.send, size: 16),
+            label: const Text('Send'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: CyberTheme.error(context),
+              backgroundColor: magentaColor,
+              foregroundColor: Colors.white,
             ),
-            child: const Text('Unstake'),
           ),
         ],
       ),
     );
 
-    if (confirmed == true && mounted) {
-      await _performUnstake();
+    if (result != null && mounted) {
+      await _performTransfer(
+        toAccount: result['recipient'] as String,
+        amount: result['amount'] as double,
+      );
+    }
+  }
+
+  Future<void> _performTransfer({
+    required String toAccount,
+    required double amount,
+  }) async {
+    final kadenaService = context.read<KadenaService>();
+
+    setState(() => _isLoadingBalance = true);
+
+    try {
+      final success = await kadenaService.transferCFLY(
+        toAccount: toAccount,
+        amount: amount,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              success 
+                  ? 'Transfer of ${amount.toStringAsFixed(2)} CFLY submitted!' 
+                  : 'Transfer failed: ${kadenaService.error}',
+              style: TextStyle(color: CyberTheme.textPrimary(context)),
+            ),
+            backgroundColor: success ? CyberTheme.success(context) : CyberTheme.error(context),
+          ),
+        );
+
+        // Reload balance after transfer
+        if (success) {
+          await _loadBalanceAndStaking();
+        } else {
+          setState(() => _isLoadingBalance = false);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingBalance = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: CyberTheme.error(context),
+          ),
+        );
+      }
     }
   }
 
@@ -662,45 +825,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           SnackBar(
             content: Text(
               success ? 'Stake transaction submitted!' : 'Stake failed: ${kadenaService.error}',
-              style: TextStyle(color: CyberTheme.textPrimary(context)),
-            ),
-            backgroundColor: success ? CyberTheme.success(context) : CyberTheme.error(context),
-          ),
-        );
-        
-        // Reload balance and staking info
-        await _loadBalanceAndStaking();
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoadingBalance = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: CyberTheme.error(context),
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _performUnstake() async {
-    final walletService = context.read<WalletService>();
-    final kadenaService = context.read<KadenaService>();
-    final publicKey = walletService.publicKey;
-    
-    if (publicKey == null) return;
-
-    setState(() => _isLoadingBalance = true);
-
-    try {
-      final success = await kadenaService.unstakeFromNode(publicKey);
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              success ? 'Unstake transaction submitted!' : 'Unstake failed: ${kadenaService.error}',
               style: TextStyle(color: CyberTheme.textPrimary(context)),
             ),
             backgroundColor: success ? CyberTheme.success(context) : CyberTheme.error(context),
@@ -878,198 +1002,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             size: 24,
           ),
         ],
-      ),
-    );
-  }
-
-
-  Widget _buildDetailRow(String label, String value) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label.toUpperCase(),
-          style: CyberTextStyles.caption.copyWith(
-            color: CyberColors.textDim,
-            letterSpacing: 1,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                value,
-                style: CyberTextStyles.mono.copyWith(
-                  fontSize: 12,
-                ),
-              ),
-            ),
-            IconButton(
-              onPressed: () {
-                Clipboard.setData(ClipboardData(text: value));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Copied to clipboard',
-                      style: CyberTextStyles.body,
-                    ),
-                    backgroundColor: CyberColors.cardDark,
-                  ),
-                );
-              },
-              icon: const Icon(Icons.copy, size: 16),
-              color: CyberColors.neonCyan,
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  void _showBackupWarning(BuildContext context) {
-    Navigator.pop(context); // Close bottom sheet
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: CyberColors.cardDark,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(
-            color: CyberColors.neonOrange.withOpacity(0.5),
-          ),
-        ),
-        title: Text(
-          '⚠️ WARNING',
-          style: CyberTextStyles.label.copyWith(
-            color: CyberColors.neonOrange,
-            letterSpacing: 2,
-          ),
-        ),
-        content: Text(
-          'Your recovery phrase gives full access to your wallet. Never share it with anyone. Make sure no one is watching your screen.',
-          style: CyberTextStyles.body,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: CyberTextStyles.body.copyWith(color: CyberColors.textDim),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _showRecoveryPhrase(context);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: CyberColors.neonOrange,
-              foregroundColor: CyberColors.backgroundDark,
-            ),
-            child: const Text('Show Phrase'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showRecoveryPhrase(BuildContext context) {
-    final walletService = context.read<WalletService>();
-    final mnemonic = walletService.getMnemonic();
-
-    if (mnemonic == null) return;
-
-    final words = mnemonic.split(' ');
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: CyberColors.cardDark,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Padding(
-        padding: EdgeInsets.fromLTRB(
-          24,
-          24,
-          24,
-          MediaQuery.of(context).viewInsets.bottom + 24,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'RECOVERY PHRASE',
-              style: CyberTextStyles.neonTitle.copyWith(
-                fontSize: 18,
-                letterSpacing: 2,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: CyberColors.backgroundDark,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: CyberColors.neonOrange.withOpacity(0.3),
-                ),
-              ),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: List.generate(words.length, (index) {
-                  return Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: CyberColors.cardDark,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: CyberColors.neonCyan.withOpacity(0.2),
-                      ),
-                    ),
-                    child: Text(
-                      '${index + 1}. ${words[index]}',
-                      style: CyberTextStyles.mono.copyWith(
-                        fontSize: 11,
-                      ),
-                    ),
-                  );
-                }),
-              ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Clipboard.setData(ClipboardData(text: mnemonic));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Recovery phrase copied',
-                        style: CyberTextStyles.body,
-                      ),
-                      backgroundColor: CyberColors.cardDark,
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.copy),
-                label: const Text('Copy to Clipboard'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: CyberColors.neonCyan,
-                  foregroundColor: CyberColors.backgroundDark,
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

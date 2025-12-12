@@ -25,7 +25,10 @@ class _NodeDetailsScreenState extends State<NodeDetailsScreen> {
   @override
   void initState() {
     super.initState();
-    _loadNodeData();
+    // Schedule after the build phase to avoid setState during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadNodeData();
+    });
   }
 
   Future<void> _loadNodeData() async {
@@ -152,11 +155,12 @@ class _NodeDetailsScreenState extends State<NodeDetailsScreen> {
     required Color confirmColor,
   }) async {
     final isDark = CyberTheme.isDark(context);
+    final onPrimary = isDark ? Colors.black : Colors.white;
     
     return await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: isDark ? CyberColors.backgroundCard : CyberColorsLight.backgroundCard,
+        backgroundColor: CyberTheme.card(context),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
           title,
@@ -178,7 +182,7 @@ class _NodeDetailsScreenState extends State<NodeDetailsScreen> {
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: confirmColor,
-              foregroundColor: Colors.white,
+              foregroundColor: onPrimary,
             ),
             child: Text(confirmText),
           ),
@@ -192,9 +196,9 @@ class _NodeDetailsScreenState extends State<NodeDetailsScreen> {
       SnackBar(
         content: Text(message),
         backgroundColor: isError 
-            ? Colors.red 
+            ? CyberTheme.error(context)
             : isSuccess 
-                ? Colors.green 
+                ? CyberTheme.success(context)
                 : CyberTheme.primary(context),
       ),
     );
@@ -202,14 +206,14 @@ class _NodeDetailsScreenState extends State<NodeDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = CyberTheme.isDark(context);
     final walletService = context.watch<WalletService>();
 
     return Scaffold(
-      backgroundColor: isDark ? CyberColors.backgroundDark : CyberColorsLight.backgroundLight,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text('Node Details'),
-        backgroundColor: Colors.transparent,
+        backgroundColor: CyberTheme.appBarBackground(context),
+        foregroundColor: CyberTheme.textPrimary(context),
         elevation: 0,
         actions: [
           IconButton(
@@ -222,7 +226,7 @@ class _NodeDetailsScreenState extends State<NodeDetailsScreen> {
                       color: CyberTheme.primary(context),
                     ),
                   )
-                : const Icon(Icons.refresh),
+                : Icon(Icons.refresh, color: CyberTheme.primary(context)),
             onPressed: _isLoading ? null : _loadNodeData,
           ),
         ],
@@ -515,12 +519,10 @@ class _NodeDetailsScreenState extends State<NodeDetailsScreen> {
   }
 
   Widget _buildActionsCard(bool canStake, bool isStaked) {
-    final isDark = CyberTheme.isDark(context);
-
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? CyberColors.backgroundCard : CyberColorsLight.backgroundCard,
+        color: CyberTheme.card(context),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: CyberTheme.primary(context).withOpacity(0.3),
@@ -543,14 +545,14 @@ class _NodeDetailsScreenState extends State<NodeDetailsScreen> {
             _buildActionButton(
               label: 'Stake 50,000 CFLY',
               icon: Icons.arrow_upward,
-              color: Colors.green,
+              color: CyberTheme.success(context),
               onPressed: _isActionLoading ? null : _handleStake,
             )
           else if (isStaked) ...[
             _buildActionButton(
               label: 'Unstake',
               icon: Icons.arrow_downward,
-              color: Colors.red,
+              color: CyberTheme.error(context),
               onPressed: _isActionLoading ? null : _handleUnstake,
             ),
             const SizedBox(height: 12),
@@ -565,7 +567,7 @@ class _NodeDetailsScreenState extends State<NodeDetailsScreen> {
           
           if (_isActionLoading) ...[
             const SizedBox(height: 16),
-            const Center(child: CircularProgressIndicator()),
+            Center(child: CircularProgressIndicator(color: CyberTheme.primary(context))),
             const SizedBox(height: 8),
             Center(
               child: Text(
@@ -585,6 +587,8 @@ class _NodeDetailsScreenState extends State<NodeDetailsScreen> {
     required Color color,
     VoidCallback? onPressed,
   }) {
+    final onPrimary = CyberTheme.isDark(context) ? Colors.black : Colors.white;
+
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
@@ -593,7 +597,7 @@ class _NodeDetailsScreenState extends State<NodeDetailsScreen> {
         label: Text(label),
         style: ElevatedButton.styleFrom(
           backgroundColor: color,
-          foregroundColor: Colors.white,
+          foregroundColor: onPrimary,
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
