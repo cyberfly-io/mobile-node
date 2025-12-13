@@ -138,6 +138,7 @@ class NodeService extends ChangeNotifier {
   bool _isStarting = false;
   Timer? _statusTimer;
   Timer? _fastPollTimer;
+  Timer? _autoClaimTimer;
   String? _walletSecretKey;
   String? _error;
   bool _initialized = false;
@@ -348,6 +349,8 @@ class NodeService extends ChangeNotifier {
     _statusTimer = null;
     _fastPollTimer?.cancel();
     _fastPollTimer = null;
+    _autoClaimTimer?.cancel();
+    _autoClaimTimer = null;
 
     try {
       if (_useBackgroundService) {
@@ -415,6 +418,40 @@ class NodeService extends ChangeNotifier {
     });
   }
 
+  /// Start auto-claim timer for rewards (every 60 seconds like desktop node)
+  /// Requires KadenaService to be passed in
+  void startAutoClaimTimer(dynamic kadenaService, String? peerId) {
+    _autoClaimTimer?.cancel();
+    if (peerId == null || kadenaService == null) return;
+    
+    // Check immediately, then every 60 seconds
+    _checkAndClaimRewards(kadenaService, peerId);
+    
+    _autoClaimTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+      if (_status.isRunning) {
+        _checkAndClaimRewards(kadenaService, peerId);
+      }
+    });
+    debugPrint('Auto-claim timer started (60s interval)');
+  }
+
+  /// Stop auto-claim timer
+  void stopAutoClaimTimer() {
+    _autoClaimTimer?.cancel();
+    _autoClaimTimer = null;
+    debugPrint('Auto-claim timer stopped');
+  }
+
+  /// Check and claim rewards (called by timer)
+  Future<void> _checkAndClaimRewards(dynamic kadenaService, String peerId) async {
+    try {
+      // Call the checkAndClaimRewards method on KadenaService
+      await kadenaService.checkAndClaimRewards(peerId);
+    } catch (e) {
+      debugPrint('Auto-claim error: $e');
+    }
+  }
+
   /// Fetch status and peers, only notify if changed
   void _fetchStatusAndPeers() {
     if (!_status.isRunning && !_isStarting) return; // Skip if not running
@@ -437,8 +474,11 @@ class NodeService extends ChangeNotifier {
       // Check if status changed (excluding uptime which always changes)
       final newStatusHash = _computeStatusHash(statusDto);
       final statusChanged = newStatusHash != _lastStatusHash;
+      
+      // Always update status to keep uptime current
+      _status = NodeStatus.fromDto(statusDto);
+      
       if (statusChanged) {
-        _status = NodeStatus.fromDto(statusDto);
         _lastStatusHash = newStatusHash;
       }
       
@@ -450,8 +490,8 @@ class NodeService extends ChangeNotifier {
         _lastPeersHash = newPeersHash;
       }
       
-      // Only notify if something changed
-      if (statusChanged || peersChanged) {
+      // Always notify when running (uptime changes) or when other fields changed
+      if (_status.isRunning || statusChanged || peersChanged) {
         notifyListeners();
       }
     } catch (e) {
@@ -546,6 +586,7 @@ class NodeService extends ChangeNotifier {
   void dispose() {
     _statusTimer?.cancel();
     _fastPollTimer?.cancel();
+    _autoClaimTimer?.cancel();
     _backgroundDataSub?.cancel();
     super.dispose();
   }

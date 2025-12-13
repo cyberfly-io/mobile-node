@@ -953,25 +953,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           subtitle: _formatBytes(status.storageSizeBytes),
         ),
         StatCard(
-          title: 'Gossip Messages',
-          value: status.gossipMessagesReceived.toString(),
-          icon: Icons.message,
-          color: CyberTheme.warning(context),
-          subtitle: 'Received',
-        ),
-        StatCard(
           title: 'Latency Checks',
           value: status.latencyRequestsSent.toString(),
           icon: Icons.speed,
           color: CyberTheme.isDark(context) ? CyberColors.neonMagenta : CyberColorsLight.primaryMagenta,
           subtitle: '${status.latencyResponsesReceived} responses',
-        ),
-        StatCard(
-          title: 'Sync Operations',
-          value: status.totalOperations.toString(),
-          icon: Icons.sync,
-          color: CyberTheme.isDark(context) ? CyberColors.neonOrange : CyberColorsLight.primaryOrange,
-          subtitle: 'Total synced',
         ),
       ],
     );

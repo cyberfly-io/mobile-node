@@ -182,6 +182,22 @@ pub struct PeerListAnnouncement {
     pub signature: String,
 }
 
+/// Desktop node's peer discovery announcement format (for compatibility)
+/// This is used by cyberfly-rust-node on peer_discovery_topic
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PeerDiscoveryAnnouncement {
+    /// Node ID of the sender
+    pub node_id: String,
+    /// List of connected peer addresses in format "peerId@ip:port"
+    pub connected_peers: Vec<String>,
+    /// Unix timestamp when announcement was created
+    pub timestamp: i64,
+    /// Region of the announcing node
+    pub region: String,
+    /// Ed25519 signature of the announcement
+    pub signature: String,
+}
+
 impl PeerListAnnouncement {
     pub fn new(from_node_id: String, public_key: String, peers: Vec<String>) -> Self {
         Self {
@@ -483,6 +499,49 @@ impl PeerRegistry {
     /// Get peer count
     pub fn peer_count(&self) -> usize {
         self.peers.len()
+    }
+
+    /// Check if a peer exists
+    pub fn has_peer(&self, node_id: &str) -> bool {
+        self.peers.contains_key(node_id)
+    }
+
+    /// Register a peer from a peer list (with optional address and region)
+    pub fn register_peer_from_list(&mut self, node_id: String, address: Option<String>, region: Option<String>) -> bool {
+        if node_id == self.local_node_id {
+            return false;
+        }
+        
+        let is_new = !self.peers.contains_key(&node_id);
+        
+        if is_new {
+            let region_str = region.clone();
+            let peer = DiscoveredPeer {
+                node_id: node_id.clone(),
+                public_key: String::new(),
+                address,
+                capabilities: NodeCapabilities::default(),
+                region,
+                version: None,
+                last_seen: Some(std::time::Instant::now()),
+                latency_ms: None,
+            };
+            self.peers.insert(node_id.clone(), peer);
+            info!("Registered peer from list: {} (region: {:?})", node_id, region_str);
+        } else {
+            // Update last_seen and optionally address/region
+            if let Some(peer) = self.peers.get_mut(&node_id) {
+                peer.last_seen = Some(std::time::Instant::now());
+                if address.is_some() {
+                    peer.address = address;
+                }
+                if region.is_some() {
+                    peer.region = region;
+                }
+            }
+        }
+        
+        is_new
     }
 
     /// Get active peer count

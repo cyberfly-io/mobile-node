@@ -34,7 +34,7 @@ use log::{info as log_info, error as log_error, warn as log_warn};
 use crate::storage::Storage;
 use crate::sync::{SyncManager, SyncMessage, SignedOperation};
 use crate::discovery::{
-    PeerRegistry, PeerAnnouncement, PeerListAnnouncement, 
+    PeerRegistry, PeerAnnouncement, PeerListAnnouncement, PeerDiscoveryAnnouncement,
     DiscoveryMessage, LatencyRequest, LatencyResponse,
     NodeCapabilities, DiscoveredPeer, ANNOUNCE_INTERVAL_SECS,
 };
@@ -227,13 +227,16 @@ impl CyberflyNode {
         let (command_tx, command_rx) = mpsc::channel(100);
         let (event_tx, event_rx) = mpsc::channel(100);
 
-        // Build discovery
+        // Build discovery - DHT + mDNS for local network peers (matching desktop)
         let dht_discovery = DhtDiscovery::builder();
+        // mDNS discovery for local network peer discovery (like desktop node)
+        let mdns_discovery = iroh::discovery::mdns::MdnsDiscovery::builder();
 
-        // Create endpoint
+        // Create endpoint with both DHT and mDNS discovery
         let endpoint = Endpoint::builder()
             .secret_key(secret_key.clone())
             .discovery(dht_discovery)
+            .discovery(mdns_discovery)
             .relay_mode(iroh::RelayMode::Default)
             .bind()
             .await?;
@@ -242,6 +245,18 @@ impl CyberflyNode {
         let node_id_str = node_id.to_string();
 
         info!("Node ID: {}", node_id_str);
+        log_info!("Node ID: {}", node_id_str);
+        
+        // Wait for endpoint to be online (have relay connection)
+        // This is important for NAT traversal
+        log_info!(">>> Waiting for endpoint to be online (relay connection)...");
+        endpoint.online().await;
+        log_info!(">>> Endpoint is online!");
+        
+        // Log endpoint addresses
+        let my_addr = endpoint.addr();
+        log_info!(">>> Our endpoint relay URLs: {:?}", 
+            my_addr.relay_urls().collect::<Vec<_>>());
 
         // Create blob store
         let store = iroh_blobs::store::fs::FsStore::load(&data_path.join("blobs")).await?;
@@ -256,7 +271,7 @@ impl CyberflyNode {
             .accept(iroh_gossip::ALPN, gossip.clone())
             .spawn();
 
-        // Parse bootstrap peers and connect to them
+        // Parse bootstrap peers and connect to them with retry logic
         let mut bootstrap_node_ids: Vec<EndpointId> = Vec::new();
         let mut all_bootstrap_strings: Vec<String> = vec![DEFAULT_BOOTSTRAP.to_string()];
         all_bootstrap_strings.extend(bootstrap_peers.iter().cloned());
@@ -272,27 +287,102 @@ impl CyberflyNode {
                     
                     bootstrap_node_ids.push(peer_node_id);
                     
-                    // Parse socket address and connect
+                    // Parse socket address and connect with retry
                     if let Ok(socket_addr) = addr_str.parse::<std::net::SocketAddr>() {
                         info!("Connecting to bootstrap peer {} at {}", peer_node_id.fmt_short(), socket_addr);
-                        log::info!("Connecting to bootstrap peer {} at {}", peer_node_id.fmt_short(), socket_addr);
+                        log_info!(">>> Connecting to bootstrap peer {} at {}", peer_node_id.fmt_short(), socket_addr);
                         
-                        // Build endpoint address with direct IP
-                        let endpoint_addr = iroh::EndpointAddr::from_parts(
-                            peer_node_id,
-                            vec![iroh::TransportAddr::Ip(socket_addr)],
-                        );
+                        // Retry connection with exponential backoff
+                        const MAX_RETRIES: u32 = 5;
+                        const INITIAL_DELAY_MS: u64 = 1000;
+                        const MAX_DELAY_MS: u64 = 30000;
                         
-                        // Connect using gossip ALPN
-                        match endpoint.connect(endpoint_addr, iroh_gossip::ALPN).await {
-                            Ok(_conn) => {
-                                info!("✓ Connected to bootstrap peer {}", peer_node_id.fmt_short());
-                                log::info!("BOOTSTRAP_CONNECTED: {}", peer_node_id.fmt_short());
+                        let mut connected = false;
+                        let mut delay_ms = INITIAL_DELAY_MS;
+                        
+                        for attempt in 1..=MAX_RETRIES {
+                            log_info!(">>> Bootstrap connect attempt {}/{} to {}", attempt, MAX_RETRIES, peer_node_id.fmt_short());
+                            
+                            // First try direct IP connection
+                            let endpoint_addr = iroh::EndpointAddr::from_parts(
+                                peer_node_id,
+                                vec![iroh::TransportAddr::Ip(socket_addr)],
+                            );
+                            
+                            // Try direct connection with timeout
+                            let connect_result = tokio::time::timeout(
+                                Duration::from_secs(10),
+                                endpoint.connect(endpoint_addr.clone(), iroh_gossip::ALPN)
+                            ).await;
+                            
+                            match connect_result {
+                                Ok(Ok(conn)) => {
+                                    info!("✓ Connected to bootstrap peer {} via direct IP", peer_node_id.fmt_short());
+                                    log_info!("✓ BOOTSTRAP_CONNECTED (direct): {} (remote_id: {:?})", 
+                                        peer_node_id.fmt_short(), 
+                                        conn.remote_id());
+                                    connected = true;
+                                    break;
+                                }
+                                Ok(Err(e)) => {
+                                    log_warn!(">>> Direct connect attempt {} failed: {}", attempt, e);
+                                    
+                                    // After first failure, try via relay
+                                    if attempt >= 1 {
+                                        if let Some(relay_url) = endpoint.addr().relay_urls().next() {
+                                            log_info!(">>> Trying relay-assisted connection via {}", relay_url);
+                                            
+                                            // Add relay to the endpoint address
+                                            let relay_addr = iroh::EndpointAddr::from_parts(
+                                                peer_node_id,
+                                                vec![
+                                                    iroh::TransportAddr::Ip(socket_addr),
+                                                    iroh::TransportAddr::Relay(relay_url.clone()),
+                                                ],
+                                            );
+                                            
+                                            let relay_connect_result = tokio::time::timeout(
+                                                Duration::from_secs(15),
+                                                endpoint.connect(relay_addr, iroh_gossip::ALPN)
+                                            ).await;
+                                            
+                                            match relay_connect_result {
+                                                Ok(Ok(conn)) => {
+                                                    info!("✓ Connected to bootstrap peer {} via relay", peer_node_id.fmt_short());
+                                                    log_info!("✓ BOOTSTRAP_CONNECTED (relay): {} (remote_id: {:?})", 
+                                                        peer_node_id.fmt_short(), 
+                                                        conn.remote_id());
+                                                    connected = true;
+                                                    break;
+                                                }
+                                                Ok(Err(relay_e)) => {
+                                                    log_warn!(">>> Relay connect attempt {} failed: {}", attempt, relay_e);
+                                                }
+                                                Err(_) => {
+                                                    log_warn!(">>> Relay connect attempt {} timed out", attempt);
+                                                }
+                                            }
+                                        } else {
+                                            log_warn!(">>> No relay URL available for fallback");
+                                        }
+                                    }
+                                }
+                                Err(_) => {
+                                    log_warn!(">>> Direct connect attempt {} timed out", attempt);
+                                }
                             }
-                            Err(e) => {
-                                warn!("Failed to connect to bootstrap peer {}: {}", peer_node_id.fmt_short(), e);
-                                log::warn!("BOOTSTRAP_CONNECT_FAILED: {} - {}", peer_node_id.fmt_short(), e);
+                            
+                            // Wait before retry with exponential backoff
+                            if attempt < MAX_RETRIES {
+                                log_info!(">>> Waiting {}ms before retry...", delay_ms);
+                                tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+                                delay_ms = (delay_ms * 2).min(MAX_DELAY_MS);
                             }
+                        }
+                        
+                        if !connected {
+                            log_warn!(">>> Failed to connect to bootstrap peer {} after {} attempts", 
+                                peer_node_id.fmt_short(), MAX_RETRIES);
                         }
                     } else {
                         log::warn!("BOOTSTRAP_PARSE_FAILED: could not parse address '{}'", addr_str);
@@ -444,9 +534,10 @@ impl CyberflyNode {
             bootstrap_peers.len(), peer_ids_str);
         info!("About to subscribe to data topic with {} bootstrap peers", bootstrap_peers.len());
         
-        // Subscribe to data topic - use subscribe() instead of subscribe_and_join() 
-        // because subscribe_and_join waits for NeighborUp which may never come if we're the only node
-        log_info!(">>> Calling gossip.subscribe for data topic...");
+        // Subscribe to data topic - use subscribe() like desktop (non-blocking)
+        // Desktop uses subscribe() which returns immediately, not subscribe_and_join()
+        log_info!(">>> Calling gossip.subscribe for data topic (non-blocking like desktop)...");
+        
         let data_subscribe_result = gossip.subscribe(data_topic_id, bootstrap_peers.clone()).await;
         log_info!("Data topic subscribe result: success={}", data_subscribe_result.is_ok());
         
@@ -469,9 +560,21 @@ impl CyberflyNode {
             let data_sender_clone = data_sender.clone();
 
             tokio::spawn(async move {
+                log_info!("📡 DATA_TOPIC LISTENER TASK STARTED");
                 log_info!("Data topic listener started, waiting for gossip events...");
                 info!("Data topic listener started, waiting for gossip events...");
+                
+                let mut event_count = 0u64;
                 while let Some(event) = receiver.next().await {
+                    event_count += 1;
+                    log_info!("📡 DATA_TOPIC EVENT #{}: {:?}", event_count,
+                        match &event {
+                            Ok(GossipEvent::Received(m)) => format!("Received {} bytes from {}", m.content.len(), m.delivered_from.fmt_short()),
+                            Ok(GossipEvent::NeighborUp(p)) => format!("NeighborUp {}", p.fmt_short()),
+                            Ok(GossipEvent::NeighborDown(p)) => format!("NeighborDown {}", p.fmt_short()),
+                            Ok(GossipEvent::Lagged) => "Lagged".to_string(),
+                            Err(e) => format!("Error: {:?}", e),
+                        });
                     log_info!("Received gossip event on data topic: {:?}", event.as_ref().map(|e| match e {
                         GossipEvent::Received(_) => "Received",
                         GossipEvent::NeighborUp(_) => "NeighborUp",
@@ -626,7 +729,7 @@ impl CyberflyNode {
             let event_tx_clone = event_tx.clone();
             let peer_registry_clone = peer_registry.clone();
             let shared_state_clone = shared_state.clone();
-            let gossip_clone = gossip.clone();
+            let endpoint_clone = endpoint.clone();
 
             tokio::spawn(async move {
                 while let Some(event) = receiver.next().await {
@@ -657,12 +760,33 @@ impl CyberflyNode {
                                             address: address.clone(),
                                         }).await;
                                         
-                                        // Try to connect to new peer
+                                        // ACTIVELY CONNECT to new peer (like desktop node does)
                                         if let Ok(peer_endpoint_id) = node_id.parse::<EndpointId>() {
-                                            let _ = gossip_clone.subscribe(
-                                                TopicId::from_bytes(*DATA_TOPIC),
-                                                vec![peer_endpoint_id],
-                                            ).await;
+                                            // Try to connect with address if available
+                                            let connect_result = if let Some(ref addr_str) = address {
+                                                if let Ok(socket_addr) = addr_str.parse::<std::net::SocketAddr>() {
+                                                    let endpoint_addr = iroh::EndpointAddr::from_parts(
+                                                        peer_endpoint_id,
+                                                        vec![iroh::TransportAddr::Ip(socket_addr)],
+                                                    );
+                                                    endpoint_clone.connect(endpoint_addr, iroh_gossip::ALPN).await
+                                                } else {
+                                                    // No valid address, try DHT/relay
+                                                    endpoint_clone.connect(peer_endpoint_id, iroh_gossip::ALPN).await
+                                                }
+                                            } else {
+                                                // No address, try DHT/relay discovery
+                                                endpoint_clone.connect(peer_endpoint_id, iroh_gossip::ALPN).await
+                                            };
+                                            
+                                            match connect_result {
+                                                Ok(_conn) => {
+                                                    log_info!("✓ Connected to discovered peer {} via announcement", node_id);
+                                                }
+                                                Err(e) => {
+                                                    log_warn!("Failed to connect to peer {}: {}", node_id, e);
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -768,50 +892,205 @@ impl CyberflyNode {
             log_error!("Failed to subscribe to sync topic!");
         }
 
-        // Subscribe to peer discovery topic
-        if let Ok(topic_handle) = gossip.subscribe(peer_discovery_topic_id, bootstrap_peers.clone()).await {
+        // Subscribe to peer discovery topic - use subscribe() like desktop (non-blocking)
+        log_info!(">>> Subscribing to peer_discovery topic with subscribe() (non-blocking like desktop)...");
+        let peer_discovery_result = gossip.subscribe(peer_discovery_topic_id, bootstrap_peers.clone()).await;
+        
+        match peer_discovery_result {
+            Ok(topic_handle) => {
+            log_info!(">>> PEER_DISCOVERY_TOPIC subscription SUCCESS!");
             let (sender, mut receiver) = topic_handle.split();
             *peer_discovery_sender.lock().await = Some(sender);
             
             let peer_registry_clone = peer_registry.clone();
-            let gossip_clone = gossip.clone();
+            let endpoint_clone = endpoint.clone();
             let event_tx_clone = event_tx.clone();
             let shared_state_clone = shared_state.clone();
+            let node_id_clone = node_id.clone();
 
             tokio::spawn(async move {
+                log_info!("📡 PEER_DISCOVERY LISTENER TASK STARTED");
+                log_info!("📡 Peer discovery listener started (topic: decentralized-peer-list-v1-iroh!)");
+                
+                // Log every 10 seconds to confirm task is alive
+                let mut event_count = 0u64;
+                let mut last_log = std::time::Instant::now();
+                
                 while let Some(event) = receiver.next().await {
-                    if let Ok(GossipEvent::Received(msg)) = event {
-                        if let Ok(disc_msg) = serde_json::from_slice::<DiscoveryMessage>(&msg.content) {
-                            if let DiscoveryMessage::PeerList(list) = disc_msg {
-                                let unknown_peers = peer_registry_clone.write().process_peer_list(&list);
-                                // Align connected/discovered counts with desktop node which treats peer list entries as active peers
+                    event_count += 1;
+                    // Log every event type
+                    log_info!("📡 PEER_DISCOVERY EVENT #{}: {:?}", event_count, 
+                        match &event {
+                            Ok(GossipEvent::Received(m)) => format!("Received {} bytes from {}", m.content.len(), m.delivered_from.fmt_short()),
+                            Ok(GossipEvent::NeighborUp(p)) => format!("NeighborUp {}", p.fmt_short()),
+                            Ok(GossipEvent::NeighborDown(p)) => format!("NeighborDown {}", p.fmt_short()),
+                            Ok(GossipEvent::Lagged) => "Lagged".to_string(),
+                            Err(e) => format!("Error: {:?}", e),
+                        });
+                    // Log alive status periodically
+                    if last_log.elapsed().as_secs() >= 10 {
+                        log_info!("📡 PEER_DISCOVERY ALIVE: {} events processed so far", event_count);
+                        last_log = std::time::Instant::now();
+                    }
+                    
+                    match event {
+                        Ok(GossipEvent::Received(msg)) => {
+                            let from_peer = msg.delivered_from;
+                            
+                            // Skip our own messages
+                            if from_peer.to_string() == node_id_clone.to_string() {
+                                continue;
+                            }
+                            
+                            log_info!("📥 Received peer discovery message from {} ({} bytes)", 
+                                from_peer.fmt_short(), msg.content.len());
+                            
+                            // Try to parse as desktop's PeerDiscoveryAnnouncement format first
+                            if let Ok(announcement) = serde_json::from_slice::<PeerDiscoveryAnnouncement>(&msg.content) {
+                                log_info!("📋 Parsed PeerDiscoveryAnnouncement from {} (region: {}): {} peers",
+                                    announcement.node_id, announcement.region, announcement.connected_peers.len());
+                                
+                                // Process each peer in the announcement
+                                for peer_str in &announcement.connected_peers {
+                                    let node_id_str = peer_str.split('@').next().unwrap_or(peer_str);
+                                    let address_str = peer_str.split('@').nth(1).map(|s| s.to_string());
+                                    
+                                    // Skip our own ID
+                                    if node_id_str == node_id_clone.to_string() {
+                                        continue;
+                                    }
+                                    
+                                    // Check if already known
+                                    let is_new = !peer_registry_clone.read().has_peer(node_id_str);
+                                    
+                                    if is_new {
+                                        // Register the peer
+                                        peer_registry_clone.write().register_peer_from_list(
+                                            node_id_str.to_string(),
+                                            address_str.clone(),
+                                            Some(announcement.region.clone()),
+                                        );
+                                        
+                                        log_info!("🔗 Connecting to new peer {} from announcement", node_id_str);
+                                        
+                                        // Try to connect
+                                        if let Ok(peer_endpoint_id) = node_id_str.parse::<EndpointId>() {
+                                            let connect_result = if let Some(ref addr_str) = address_str {
+                                                if let Ok(socket_addr) = addr_str.parse::<std::net::SocketAddr>() {
+                                                    let endpoint_addr = iroh::EndpointAddr::from_parts(
+                                                        peer_endpoint_id,
+                                                        vec![iroh::TransportAddr::Ip(socket_addr)],
+                                                    );
+                                                    endpoint_clone.connect(endpoint_addr, iroh_gossip::ALPN).await
+                                                } else {
+                                                    endpoint_clone.connect(peer_endpoint_id, iroh_gossip::ALPN).await
+                                                }
+                                            } else {
+                                                endpoint_clone.connect(peer_endpoint_id, iroh_gossip::ALPN).await
+                                            };
+                                            
+                                            match connect_result {
+                                                Ok(_conn) => {
+                                                    log_info!("✓ Connected to peer {} from discovery", node_id_str);
+                                                }
+                                                Err(e) => {
+                                                    log_warn!("Failed to connect to peer {}: {}", node_id_str, e);
+                                                }
+                                            }
+                                        }
+                                        
+                                        let _ = event_tx_clone.send(NodeEvent::PeerDiscovered {
+                                            peer_id: node_id_str.to_string(),
+                                            address: address_str,
+                                        }).await;
+                                    }
+                                }
+                                
+                                // Update counts
                                 let peer_count = peer_registry_clone.read().peer_count();
                                 {
                                     let mut state = shared_state_clone.write();
                                     state.discovered_peers = peer_count;
                                     state.connected_peers = peer_count;
                                 }
-                                
-                                // Try to connect to unknown peers
-                                for peer_str in unknown_peers {
-                                    let node_id_str = peer_str.split('@').next().unwrap_or(&peer_str);
-                                    if let Ok(peer_endpoint_id) = node_id_str.parse::<EndpointId>() {
-                                        let _ = gossip_clone.subscribe(
-                                            TopicId::from_bytes(*DATA_TOPIC),
-                                            vec![peer_endpoint_id],
-                                        ).await;
+                            }
+                            // Also try our mobile format
+                            else if let Ok(disc_msg) = serde_json::from_slice::<DiscoveryMessage>(&msg.content) {
+                                if let DiscoveryMessage::PeerList(list) = disc_msg {
+                                    log_info!("📋 Parsed PeerList from {}: {} peers", 
+                                        list.from_node_id, list.peers.len());
+                                    
+                                    let unknown_peers = peer_registry_clone.write().process_peer_list(&list);
+                                    let peer_count = peer_registry_clone.read().peer_count();
+                                    {
+                                        let mut state = shared_state_clone.write();
+                                        state.discovered_peers = peer_count;
+                                        state.connected_peers = peer_count;
+                                    }
+                                    
+                                    for peer_str in unknown_peers {
+                                        let node_id_str = peer_str.split('@').next().unwrap_or(&peer_str);
+                                        let address_str = peer_str.split('@').nth(1).map(|s| s.to_string());
                                         
-                                        let _ = event_tx_clone.send(NodeEvent::PeerDiscovered {
-                                            peer_id: node_id_str.to_string(),
-                                            address: peer_str.split('@').nth(1).map(|s| s.to_string()),
-                                        }).await;
+                                        if let Ok(peer_endpoint_id) = node_id_str.parse::<EndpointId>() {
+                                            let connect_result = if let Some(ref addr_str) = address_str {
+                                                if let Ok(socket_addr) = addr_str.parse::<std::net::SocketAddr>() {
+                                                    let endpoint_addr = iroh::EndpointAddr::from_parts(
+                                                        peer_endpoint_id,
+                                                        vec![iroh::TransportAddr::Ip(socket_addr)],
+                                                    );
+                                                    endpoint_clone.connect(endpoint_addr, iroh_gossip::ALPN).await
+                                                } else {
+                                                    endpoint_clone.connect(peer_endpoint_id, iroh_gossip::ALPN).await
+                                                }
+                                            } else {
+                                                endpoint_clone.connect(peer_endpoint_id, iroh_gossip::ALPN).await
+                                            };
+                                            
+                                            match connect_result {
+                                                Ok(_conn) => {
+                                                    log_info!("✓ Connected to peer {} from peer list", node_id_str);
+                                                }
+                                                Err(e) => {
+                                                    log_warn!("Failed to connect to peer {}: {}", node_id_str, e);
+                                                }
+                                            }
+                                            
+                                            let _ = event_tx_clone.send(NodeEvent::PeerDiscovered {
+                                                peer_id: node_id_str.to_string(),
+                                                address: address_str,
+                                            }).await;
+                                        }
                                     }
                                 }
                             }
                         }
+                        Ok(GossipEvent::NeighborUp(peer_id)) => {
+                            log_info!("📡 Peer discovery NeighborUp: {}", peer_id.fmt_short());
+                            peer_registry_clone.write().register_connected_peer(peer_id.to_string());
+                            let peer_count = peer_registry_clone.read().peer_count();
+                            {
+                                let mut state = shared_state_clone.write();
+                                state.discovered_peers = peer_count;
+                                state.connected_peers = peer_count;
+                            }
+                        }
+                        Ok(GossipEvent::NeighborDown(peer_id)) => {
+                            log_info!("📡 Peer discovery NeighborDown: {}", peer_id.fmt_short());
+                        }
+                        Ok(GossipEvent::Lagged) => {
+                            log_warn!("📡 Peer discovery gossip lagged");
+                        }
+                        Err(e) => {
+                            log_error!("📡 Peer discovery error: {}", e);
+                        }
                     }
                 }
             });
+            }
+            Err(e) => {
+                log_error!(">>> PEER_DISCOVERY_TOPIC subscription FAILED: {:?}", e);
+            }
         }
 
         // Subscribe to improved discovery topic (v2 postcard format) - matches cyberfly-rust-node
@@ -823,7 +1102,7 @@ impl CyberflyNode {
             let peer_registry_clone = peer_registry.clone();
             let shared_state_clone = shared_state.clone();
             let event_tx_clone = event_tx.clone();
-            let gossip_clone = gossip.clone();
+            let endpoint_clone = endpoint.clone();
             let node_id_clone = node_id.clone();
 
             tokio::spawn(async move {
@@ -859,12 +1138,17 @@ impl CyberflyNode {
                                     address: None,
                                 }).await;
                                 
-                                // Try to connect to this peer on data topic
+                                // ACTIVELY CONNECT to this peer (like desktop node does)
                                 if let Ok(peer_endpoint_id) = from_peer.parse::<EndpointId>() {
-                                    let _ = gossip_clone.subscribe(
-                                        TopicId::from_bytes(*DATA_TOPIC),
-                                        vec![peer_endpoint_id],
-                                    ).await;
+                                    // No address available from improved discovery, try DHT/relay
+                                    match endpoint_clone.connect(peer_endpoint_id, iroh_gossip::ALPN).await {
+                                        Ok(_conn) => {
+                                            log_info!("✓ Connected to peer {} via improved discovery", from_peer);
+                                        }
+                                        Err(e) => {
+                                            log_warn!("Failed to connect to peer {}: {}", from_peer, e);
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -941,54 +1225,80 @@ impl CyberflyNode {
                 }
                 
                 // Also broadcast on improved discovery topic (v2 postcard format)
-                // This uses postcard binary serialization matching cyberfly-rust-node
-                // Format: SignedDiscoveryMessage { from, data, signature }
+                // This uses postcard binary serialization matching cyberfly-rust-node EXACTLY
+                // Desktop format from gossip_discovery.rs:
+                //   DiscoveryNode { name, node_id: NodeId, count, region, capabilities }
+                //   SignedDiscoveryMessage { from: [u8;32], data: Vec<u8>, signature: [u8;64] }
                 if let Some(sender) = improved_discovery_sender_announce.lock().await.as_ref() {
-                    // Create a simple discovery node announcement compatible with v2 format
-                    // The upstream expects postcard-serialized DiscoveryNode
-                    #[derive(serde::Serialize)]
+                    // Match desktop's DiscoveryNode format EXACTLY
+                    // Desktop uses EndpointId (NodeId) directly, not String
+                    #[derive(serde::Serialize, serde::Deserialize)]
                     struct DiscoveryNodeV2 {
                         name: String,
-                        node_id: String,
+                        node_id: iroh::EndpointId,  // Must be EndpointId, not String!
                         count: u32,
                         region: String,
-                        capabilities: NodeCapabilities,
+                        capabilities: CapabilitiesV2,
                     }
                     
-                    // We use a simple counter that increments each announcement
-                    static ANNOUNCE_COUNT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
-                    let count = ANNOUNCE_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    // Desktop's NodeCapabilities format
+                    #[derive(serde::Serialize, serde::Deserialize)]
+                    struct CapabilitiesV2 {
+                        mqtt: bool,
+                        streams: bool,
+                        timeseries: bool,
+                        geo: bool,
+                        blobs: bool,
+                    }
                     
-                    let node = DiscoveryNodeV2 {
-                        name: format!("cyberfly-mobile-{}", &node_id_announce[..8]),
-                        node_id: node_id_announce.clone(),
-                        count,
-                        region: region_announce.clone().unwrap_or_else(|| "unknown".to_string()),
-                        capabilities: NodeCapabilities::mobile_node(),
-                    };
+                    // Desktop's SignedDiscoveryMessage format - uses Vec<u8> for serde compatibility
+                    #[derive(serde::Serialize, serde::Deserialize)]
+                    struct SignedDiscoveryMessageV2 {
+                        from: Vec<u8>,       // ed25519 public key (32 bytes)
+                        data: Vec<u8>,       // postcard-serialized DiscoveryNode
+                        signature: Vec<u8>,  // ed25519 signature (64 bytes)
+                    }
                     
-                    // Serialize with postcard
-                    if let Ok(data) = postcard::to_stdvec(&node) {
-                        // Sign the data
-                        use ed25519_dalek::Signer;
-                        let signature = signing_key_announce.sign(&data);
+                    // Parse our node_id string back to EndpointId
+                    if let Ok(our_endpoint_id) = node_id_announce.parse::<iroh::EndpointId>() {
+                        // We use a simple counter that increments each announcement
+                        static ANNOUNCE_COUNT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+                        let count = ANNOUNCE_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                         
-                        // Create signed message
-                        #[derive(serde::Serialize)]
-                        struct SignedDiscoveryMessage {
-                            from: Vec<u8>,
-                            data: Vec<u8>,
-                            signature: Vec<u8>,
-                        }
-                        
-                        let signed_msg = SignedDiscoveryMessage {
-                            from: signing_key_announce.verifying_key().to_bytes().to_vec(),
-                            data,
-                            signature: signature.to_bytes().to_vec(),
+                        let node = DiscoveryNodeV2 {
+                            name: format!("cyberfly-mobile-{}", &node_id_announce[..8]),
+                            node_id: our_endpoint_id,
+                            count,
+                            region: region_announce.clone().unwrap_or_else(|| "unknown".to_string()),
+                            capabilities: CapabilitiesV2 {
+                                mqtt: false,
+                                streams: false,
+                                timeseries: false,
+                                geo: false,
+                                blobs: true,
+                            },
                         };
                         
-                        if let Ok(encoded) = postcard::to_stdvec(&signed_msg) {
-                            let _ = sender.broadcast(Bytes::from(encoded)).await;
+                        // Serialize inner data with postcard
+                        if let Ok(data) = postcard::to_stdvec(&node) {
+                            // Sign the data with ed25519
+                            use ed25519_dalek::Signer;
+                            let signature = signing_key_announce.sign(&data);
+                            
+                            // Create signed message with Vec<u8> types (serde compatible)
+                            let signed_msg = SignedDiscoveryMessageV2 {
+                                from: signing_key_announce.verifying_key().to_bytes().to_vec(),
+                                data,
+                                signature: signature.to_bytes().to_vec(),
+                            };
+                            
+                            // Serialize the signed message with postcard
+                            if let Ok(encoded) = postcard::to_stdvec(&signed_msg) {
+                                match sender.broadcast(Bytes::from(encoded)).await {
+                                    Ok(_) => log_info!("📡 Broadcast v2 discovery (postcard+ed25519)"),
+                                    Err(e) => log_warn!("Failed to broadcast v2 discovery: {}", e),
+                                }
+                            }
                         }
                     }
                 }
@@ -1017,6 +1327,96 @@ impl CyberflyNode {
                         Ok(_) => log_info!("✓ Initial sync request sent"),
                         Err(e) => log_error!("Failed to send initial sync request: {}", e),
                     }
+                }
+            }
+        });
+
+        // Bootstrap connection monitor - check and reconnect if isolated
+        let endpoint_monitor = endpoint.clone();
+        let gossip_monitor = gossip.clone();
+        let bootstrap_peers_monitor = bootstrap_peers.clone();
+        let shared_state_monitor = shared_state.clone();
+        let node_id_monitor = node_id.clone();
+        tokio::spawn(async move {
+            log_info!("🔍 Bootstrap connection monitor started");
+            let mut check_interval = tokio::time::interval(Duration::from_secs(30));
+            let mut consecutive_isolation_count = 0u32;
+            
+            loop {
+                check_interval.tick().await;
+                
+                let state = shared_state_monitor.read().clone();
+                let connected = state.connected_peers;
+                let msgs = state.gossip_messages_received;
+                
+                // Check relay status - need to hold addr to prevent temporary drop
+                let my_addr = endpoint_monitor.addr();
+                let relay_urls: Vec<_> = my_addr.relay_urls().cloned().collect();
+                let relay_status = relay_urls.first().map(|r| r.to_string()).unwrap_or_else(|| "None".to_string());
+                log_info!("🔍 Connection check: connected={}, gossip_msgs={}, relay={}", connected, msgs, relay_status);
+                
+                // Get connection count from endpoint - use direct addresses as proxy
+                let direct_addrs_count = my_addr.ip_addrs().count();
+                log_info!("🔍 Endpoint has {} direct addresses, {} relay URLs", direct_addrs_count, relay_urls.len());
+                
+                // Check if we're isolated (no gossip neighbors)
+                // In HyParView, we need NeighborUp events to be "connected" to the overlay
+                let is_isolated = connected == 0 || (msgs == 0 && relay_urls.is_empty());
+                
+                if is_isolated {
+                    consecutive_isolation_count += 1;
+                    log_warn!("🔍 Node appears ISOLATED ({}/3 checks)", consecutive_isolation_count);
+                    
+                    // After 3 consecutive isolated checks, try to reconnect
+                    if consecutive_isolation_count >= 3 {
+                        log_warn!("🔍 Attempting bootstrap reconnection...");
+                        
+                        for peer_id in &bootstrap_peers_monitor {
+                            // Get default bootstrap address
+                            let socket_addr: std::net::SocketAddr = "67.211.219.34:31001".parse().unwrap();
+                            
+                            // Try relay-assisted connection
+                            if let Some(relay_url) = relay_urls.first() {
+                                log_info!("🔍 Reconnecting to {} via relay {}", peer_id.fmt_short(), relay_url);
+                                
+                                let relay_addr = iroh::EndpointAddr::from_parts(
+                                    *peer_id,
+                                    vec![
+                                        iroh::TransportAddr::Ip(socket_addr),
+                                        iroh::TransportAddr::Relay((*relay_url).clone()),
+                                    ],
+                                );
+                                
+                                match tokio::time::timeout(
+                                    Duration::from_secs(15),
+                                    endpoint_monitor.connect(relay_addr, iroh_gossip::ALPN)
+                                ).await {
+                                    Ok(Ok(conn)) => {
+                                        log_info!("🔍 ✓ Reconnected to bootstrap {} (remote: {:?})", 
+                                            peer_id.fmt_short(), conn.remote_id());
+                                        
+                                        // Re-subscribe to data topic to rejoin HyParView
+                                        log_info!("🔍 Re-joining gossip topics...");
+                                        let data_topic_id = TopicId::from_bytes(*DATA_TOPIC);
+                                        let _ = gossip_monitor.subscribe(data_topic_id, vec![*peer_id]).await;
+                                    }
+                                    Ok(Err(e)) => {
+                                        log_warn!("🔍 Reconnect failed: {}", e);
+                                    }
+                                    Err(_) => {
+                                        log_warn!("🔍 Reconnect timed out");
+                                    }
+                                }
+                            } else {
+                                log_warn!("🔍 No relay URL available for reconnection");
+                            }
+                        }
+                        
+                        consecutive_isolation_count = 0; // Reset after reconnect attempt
+                    }
+                } else {
+                    consecutive_isolation_count = 0;
+                    log_info!("🔍 Node is connected (not isolated)");
                 }
             }
         });

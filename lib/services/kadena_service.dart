@@ -602,6 +602,31 @@ class KadenaService extends ChangeNotifier {
     }
   }
 
+  /// Check status and auto-claim rewards if available (for periodic task)
+  /// This is a silent operation - does not show loading state or errors in UI
+  Future<bool> checkAndClaimRewards(String peerId) async {
+    try {
+      debugPrint('Checking rewards for node: $peerId');
+      
+      // Check if rewards are claimable
+      final rewardInfo = await calculateRewards(peerId);
+      if (rewardInfo != null && rewardInfo.hasClaimableRewards) {
+        debugPrint('Rewards available: ${rewardInfo.days} days, ${rewardInfo.reward} tokens - claiming now');
+        final success = await claimReward(peerId);
+        if (success) {
+          debugPrint('✅ Auto-claimed ${rewardInfo.reward} CFLY tokens');
+        }
+        return success;
+      } else {
+        debugPrint('No claimable rewards yet (days: ${rewardInfo?.days ?? 0}, reward: ${rewardInfo?.reward ?? 0})');
+        return false;
+      }
+    } catch (e) {
+      debugPrint('Auto-claim check failed: $e');
+      return false;
+    }
+  }
+
   /// Ensure node is registered and active (main entry point)
   /// Returns: 'created' if new node created, 'active' if already active, 'activated' if was inactive, null if failed
   Future<String?> ensureRegistered(String peerId, String multiaddr) async {

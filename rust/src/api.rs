@@ -116,14 +116,15 @@ pub fn init_logging() {
     {
         android_logger::init_once(
             android_logger::Config::default()
-                .with_max_level(log::LevelFilter::Warn)
+                .with_max_level(log::LevelFilter::Info)
                 .with_tag("CyberflyRust")
                 .format(|buf, record| {
-                    // Only show warnings and errors, filter out iroh verbose logs
-                    if record.target().starts_with("iroh") {
+                    // Filter out very verbose iroh internal logs, but keep important ones
+                    let target = record.target();
+                    if target.starts_with("iroh") && record.level() > log::Level::Warn {
                         return Ok(());
                     }
-                    writeln!(buf, "[{}] {}", record.level(), record.args())
+                    writeln!(buf, "[{}] {}: {}", record.level(), target, record.args())
                 }),
         );
     }

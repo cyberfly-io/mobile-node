@@ -238,6 +238,10 @@ class _AppEntryPointState extends State<AppEntryPoint> {
                 debugPrint('Registration failed: $error');
                 showGlobalSnackBar('Registration failed: $error', isError: true);
               }
+              
+              // Start auto-claim timer after registration (check rewards every 60 seconds)
+              nodeService.startAutoClaimTimer(kadenaService, publicKey);
+              debugPrint('Auto-claim timer started for peerId: $publicKey');
             } catch (e) {
               debugPrint('Node registration error: $e');
               showGlobalSnackBar('Registration error: ${e.toString().split('\n').first}', isError: true);
