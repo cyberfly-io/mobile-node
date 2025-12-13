@@ -9,6 +9,7 @@ import '../widgets/status_indicator.dart';
 import '../widgets/peer_list.dart';
 import '../widgets/node_info_card.dart';
 import '../theme/theme.dart';
+import 'console_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -227,7 +228,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   expandedHeight: 120,
                   floating: true,
                   pinned: true,
-                  backgroundColor: CyberTheme.appBarBackground(context),
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
                   actions: [
                     // Refresh button with rotation animation
                     if (nodeService.isRunning)
@@ -362,6 +364,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                 : PeerList(peers: nodeService.peers),
                           ),
                         ],
+
+                        // Console logs (collapsible)
+                        if (nodeService.isRunning)
+                          AnimatedListItem(
+                            index: 7,
+                            child: const ConsoleLogWidget(
+                              maxHeight: 200,
+                              initiallyExpanded: false,
+                            ),
+                          ),
 
                         const SizedBox(height: 100), // Space for FAB
                       ],

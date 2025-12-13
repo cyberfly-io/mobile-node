@@ -107,9 +107,20 @@ impl Storage {
         Ok(names)
     }
 
-    /// Get storage size in bytes
+    /// Get storage size in bytes (actual data size, not file size)
     pub fn size_bytes(&self) -> Result<u64> {
-        Ok(self.db.size_on_disk()?)
+        let mut total_size: u64 = 0;
+        for name in self.db.tree_names() {
+            if let Ok(tree) = self.db.open_tree(&name) {
+                for item in tree.iter() {
+                    if let Ok((key, value)) = item {
+                        total_size += key.len() as u64;
+                        total_size += value.len() as u64;
+                    }
+                }
+            }
+        }
+        Ok(total_size)
     }
 
     /// Get total key count across all databases

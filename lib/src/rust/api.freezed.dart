@@ -370,6 +370,181 @@ abstract class _KeyPairDto implements KeyPairDto {
 }
 
 /// @nodoc
+mixin _$LogEntry {
+  int get timestamp => throw _privateConstructorUsedError;
+  String get level => throw _privateConstructorUsedError;
+  String get message => throw _privateConstructorUsedError;
+
+  /// Create a copy of LogEntry
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  $LogEntryCopyWith<LogEntry> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class $LogEntryCopyWith<$Res> {
+  factory $LogEntryCopyWith(LogEntry value, $Res Function(LogEntry) then) =
+      _$LogEntryCopyWithImpl<$Res, LogEntry>;
+  @useResult
+  $Res call({int timestamp, String level, String message});
+}
+
+/// @nodoc
+class _$LogEntryCopyWithImpl<$Res, $Val extends LogEntry>
+    implements $LogEntryCopyWith<$Res> {
+  _$LogEntryCopyWithImpl(this._value, this._then);
+
+  // ignore: unused_field
+  final $Val _value;
+  // ignore: unused_field
+  final $Res Function($Val) _then;
+
+  /// Create a copy of LogEntry
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? timestamp = null,
+    Object? level = null,
+    Object? message = null,
+  }) {
+    return _then(
+      _value.copyWith(
+            timestamp: null == timestamp
+                ? _value.timestamp
+                : timestamp // ignore: cast_nullable_to_non_nullable
+                      as int,
+            level: null == level
+                ? _value.level
+                : level // ignore: cast_nullable_to_non_nullable
+                      as String,
+            message: null == message
+                ? _value.message
+                : message // ignore: cast_nullable_to_non_nullable
+                      as String,
+          )
+          as $Val,
+    );
+  }
+}
+
+/// @nodoc
+abstract class _$$LogEntryImplCopyWith<$Res>
+    implements $LogEntryCopyWith<$Res> {
+  factory _$$LogEntryImplCopyWith(
+    _$LogEntryImpl value,
+    $Res Function(_$LogEntryImpl) then,
+  ) = __$$LogEntryImplCopyWithImpl<$Res>;
+  @override
+  @useResult
+  $Res call({int timestamp, String level, String message});
+}
+
+/// @nodoc
+class __$$LogEntryImplCopyWithImpl<$Res>
+    extends _$LogEntryCopyWithImpl<$Res, _$LogEntryImpl>
+    implements _$$LogEntryImplCopyWith<$Res> {
+  __$$LogEntryImplCopyWithImpl(
+    _$LogEntryImpl _value,
+    $Res Function(_$LogEntryImpl) _then,
+  ) : super(_value, _then);
+
+  /// Create a copy of LogEntry
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? timestamp = null,
+    Object? level = null,
+    Object? message = null,
+  }) {
+    return _then(
+      _$LogEntryImpl(
+        timestamp: null == timestamp
+            ? _value.timestamp
+            : timestamp // ignore: cast_nullable_to_non_nullable
+                  as int,
+        level: null == level
+            ? _value.level
+            : level // ignore: cast_nullable_to_non_nullable
+                  as String,
+        message: null == message
+            ? _value.message
+            : message // ignore: cast_nullable_to_non_nullable
+                  as String,
+      ),
+    );
+  }
+}
+
+/// @nodoc
+
+class _$LogEntryImpl implements _LogEntry {
+  const _$LogEntryImpl({
+    required this.timestamp,
+    required this.level,
+    required this.message,
+  });
+
+  @override
+  final int timestamp;
+  @override
+  final String level;
+  @override
+  final String message;
+
+  @override
+  String toString() {
+    return 'LogEntry(timestamp: $timestamp, level: $level, message: $message)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$LogEntryImpl &&
+            (identical(other.timestamp, timestamp) ||
+                other.timestamp == timestamp) &&
+            (identical(other.level, level) || other.level == level) &&
+            (identical(other.message, message) || other.message == message));
+  }
+
+  @override
+  int get hashCode => Object.hash(runtimeType, timestamp, level, message);
+
+  /// Create a copy of LogEntry
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$LogEntryImplCopyWith<_$LogEntryImpl> get copyWith =>
+      __$$LogEntryImplCopyWithImpl<_$LogEntryImpl>(this, _$identity);
+}
+
+abstract class _LogEntry implements LogEntry {
+  const factory _LogEntry({
+    required final int timestamp,
+    required final String level,
+    required final String message,
+  }) = _$LogEntryImpl;
+
+  @override
+  int get timestamp;
+  @override
+  String get level;
+  @override
+  String get message;
+
+  /// Create a copy of LogEntry
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$LogEntryImplCopyWith<_$LogEntryImpl> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
 mixin _$NodeInfo {
   String get nodeId => throw _privateConstructorUsedError;
   String get publicKey => throw _privateConstructorUsedError;

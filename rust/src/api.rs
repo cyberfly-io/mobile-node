@@ -4,6 +4,7 @@
 
 use std::sync::Arc;
 use std::io::Write;
+use std::collections::VecDeque;
 use once_cell::sync::OnceCell;
 use parking_lot::RwLock;
 use tokio::runtime::Runtime;
@@ -19,6 +20,28 @@ static NODE: OnceCell<Arc<RwLock<Option<Arc<CyberflyNode>>>>> = OnceCell::new();
 
 /// Global tokio runtime
 static RUNTIME: OnceCell<Runtime> = OnceCell::new();
+
+/// Global log buffer for Flutter UI - circular buffer of recent logs
+const MAX_LOG_ENTRIES: usize = 500;
+static LOG_BUFFER: OnceCell<Arc<RwLock<VecDeque<LogEntry>>>> = OnceCell::new();
+
+fn get_log_buffer() -> &'static Arc<RwLock<VecDeque<LogEntry>>> {
+    LOG_BUFFER.get_or_init(|| Arc::new(RwLock::new(VecDeque::with_capacity(MAX_LOG_ENTRIES))))
+}
+
+/// Add a log entry to the buffer (called from our custom logger)
+pub fn add_log_entry(level: &str, message: String) {
+    let buffer = get_log_buffer();
+    let mut guard = buffer.write();
+    if guard.len() >= MAX_LOG_ENTRIES {
+        guard.pop_front();
+    }
+    guard.push_back(LogEntry {
+        timestamp: chrono::Utc::now().timestamp_millis(),
+        level: level.to_string(),
+        message,
+    });
+}
 
 fn get_runtime() -> &'static Runtime {
     RUNTIME.get_or_init(|| {
@@ -88,6 +111,15 @@ pub struct NodeStatusDto {
     pub latency_responses_received: u64,
 }
 
+/// Log entry for Flutter console
+#[derive(Clone)]
+#[frb(dart_metadata=("freezed"))]
+pub struct LogEntry {
+    pub timestamp: i64,
+    pub level: String,
+    pub message: String,
+}
+
 /// Event types for Flutter
 #[frb(dart_metadata=("freezed"))]
 pub enum NodeEventDto {
@@ -124,7 +156,12 @@ pub fn init_logging() {
                     if target.starts_with("iroh") && record.level() > log::Level::Warn {
                         return Ok(());
                     }
-                    writeln!(buf, "[{}] {}: {}", record.level(), target, record.args())
+                    
+                    // Also capture to our buffer for Flutter UI
+                    let message = format!("{}: {}", target, record.args());
+                    add_log_entry(&record.level().to_string(), message.clone());
+                    
+                    writeln!(buf, "[{}] {}", record.level(), message)
                 }),
         );
     }
@@ -434,4 +471,20 @@ pub async fn get_all_data() -> Result<Vec<DbEntryDto>, String> {
 pub async fn delete_data(db_name: String, key: String) -> Result<(), String> {
     let node = get_node()?;
     node.delete_data(&db_name, &key).await.map_err(|e| e.to_string())
+}
+
+/// Get recent logs from the buffer
+#[frb(sync)]
+pub fn get_logs(limit: Option<u32>) -> Vec<LogEntry> {
+    let buffer = get_log_buffer();
+    let guard = buffer.read();
+    let limit = limit.unwrap_or(100) as usize;
+    guard.iter().rev().take(limit).cloned().collect::<Vec<_>>().into_iter().rev().collect()
+}
+
+/// Clear the log buffer
+#[frb(sync)]
+pub fn clear_logs() {
+    let buffer = get_log_buffer();
+    buffer.write().clear();
 }

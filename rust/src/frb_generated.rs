@@ -37,7 +37,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueNom,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.11.1";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -774782195;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1121877269;
 
 // Section: executor
 
@@ -45,6 +45,48 @@ flutter_rust_bridge::frb_generated_default_handler!();
 
 // Section: wire_funcs
 
+fn wire__crate__api__add_log_entry_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    level: impl CstDecode<String>,
+    message: impl CstDecode<String>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::DcoCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "add_log_entry",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_level = level.cst_decode();
+            let api_message = message.cst_decode();
+            move |context| {
+                transform_result_dco::<_, _, ()>((move || {
+                    let output_ok = Result::<_, ()>::Ok({
+                        crate::api::add_log_entry(&api_level, api_message);
+                    })?;
+                    Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__clear_logs_impl() -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::DcoCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "clear_logs",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            transform_result_dco::<_, _, ()>((move || {
+                let output_ok = Result::<_, ()>::Ok({
+                    crate::api::clear_logs();
+                })?;
+                Ok(output_ok)
+            })())
+        },
+    )
+}
 fn wire__crate__api__delete_data_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     db_name: impl CstDecode<String>,
@@ -213,6 +255,24 @@ fn wire__crate__api__get_data_impl(
                     .await,
                 )
             }
+        },
+    )
+}
+fn wire__crate__api__get_logs_impl(
+    limit: impl CstDecode<Option<u32>>,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::DcoCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "get_logs",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let api_limit = limit.cst_decode();
+            transform_result_dco::<_, _, ()>((move || {
+                let output_ok = Result::<_, ()>::Ok(crate::api::get_logs(api_limit))?;
+                Ok(output_ok)
+            })())
         },
     )
 }
@@ -738,6 +798,18 @@ impl SseDecode for Vec<crate::api::DbEntryDto> {
     }
 }
 
+impl SseDecode for Vec<crate::api::LogEntry> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = vec![];
+        for idx_ in 0..len_ {
+            ans_.push(<crate::api::LogEntry>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Vec<crate::api::PeerInfoDto> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -759,6 +831,20 @@ impl SseDecode for Vec<u8> {
             ans_.push(<u8>::sse_decode(deserializer));
         }
         return ans_;
+    }
+}
+
+impl SseDecode for crate::api::LogEntry {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_timestamp = <i64>::sse_decode(deserializer);
+        let mut var_level = <String>::sse_decode(deserializer);
+        let mut var_message = <String>::sse_decode(deserializer);
+        return crate::api::LogEntry {
+            timestamp: var_timestamp,
+            level: var_level,
+            message: var_message,
+        };
     }
 }
 
@@ -833,6 +919,17 @@ impl SseDecode for Option<crate::api::NodeInfo> {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         if (<bool>::sse_decode(deserializer)) {
             return Some(<crate::api::NodeInfo>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<u32> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<u32>::sse_decode(deserializer));
         } else {
             return None;
         }
@@ -978,6 +1075,23 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::KeyPairDto> for crate::api::K
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::LogEntry {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.timestamp.into_into_dart().into_dart(),
+            self.level.into_into_dart().into_dart(),
+            self.message.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::api::LogEntry {}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::LogEntry> for crate::api::LogEntry {
+    fn into_into_dart(self) -> crate::api::LogEntry {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::api::NodeInfo {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -1100,6 +1214,16 @@ impl SseEncode for Vec<crate::api::DbEntryDto> {
     }
 }
 
+impl SseEncode for Vec<crate::api::LogEntry> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::api::LogEntry>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Vec<crate::api::PeerInfoDto> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -1117,6 +1241,15 @@ impl SseEncode for Vec<u8> {
         for item in self {
             <u8>::sse_encode(item, serializer);
         }
+    }
+}
+
+impl SseEncode for crate::api::LogEntry {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i64>::sse_encode(self.timestamp, serializer);
+        <String>::sse_encode(self.level, serializer);
+        <String>::sse_encode(self.message, serializer);
     }
 }
 
@@ -1172,6 +1305,16 @@ impl SseEncode for Option<crate::api::NodeInfo> {
         <bool>::sse_encode(self.is_some(), serializer);
         if let Some(value) = self {
             <crate::api::NodeInfo>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<u32> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <u32>::sse_encode(value, serializer);
         }
     }
 }
@@ -1282,6 +1425,12 @@ mod io {
             CstDecode::<crate::api::NodeInfo>::cst_decode(*wrap).into()
         }
     }
+    impl CstDecode<u32> for *mut u32 {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> u32 {
+            unsafe { *flutter_rust_bridge::for_generated::box_from_leak_ptr(self) }
+        }
+    }
     impl CstDecode<u64> for *mut u64 {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> u64 {
@@ -1328,6 +1477,16 @@ mod io {
             vec.into_iter().map(CstDecode::cst_decode).collect()
         }
     }
+    impl CstDecode<Vec<crate::api::LogEntry>> for *mut wire_cst_list_log_entry {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> Vec<crate::api::LogEntry> {
+            let vec = unsafe {
+                let wrap = flutter_rust_bridge::for_generated::box_from_leak_ptr(self);
+                flutter_rust_bridge::for_generated::vec_from_leak_ptr(wrap.ptr, wrap.len)
+            };
+            vec.into_iter().map(CstDecode::cst_decode).collect()
+        }
+    }
     impl CstDecode<Vec<crate::api::PeerInfoDto>> for *mut wire_cst_list_peer_info_dto {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> Vec<crate::api::PeerInfoDto> {
@@ -1353,6 +1512,16 @@ mod io {
             unsafe {
                 let wrap = flutter_rust_bridge::for_generated::box_from_leak_ptr(self);
                 flutter_rust_bridge::for_generated::vec_from_leak_ptr(wrap.ptr, wrap.len)
+            }
+        }
+    }
+    impl CstDecode<crate::api::LogEntry> for wire_cst_log_entry {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::api::LogEntry {
+            crate::api::LogEntry {
+                timestamp: self.timestamp.cst_decode(),
+                level: self.level.cst_decode(),
+                message: self.message.cst_decode(),
             }
         }
     }
@@ -1426,6 +1595,20 @@ mod io {
             Self::new_with_null_ptr()
         }
     }
+    impl NewWithNullPtr for wire_cst_log_entry {
+        fn new_with_null_ptr() -> Self {
+            Self {
+                timestamp: Default::default(),
+                level: core::ptr::null_mut(),
+                message: core::ptr::null_mut(),
+            }
+        }
+    }
+    impl Default for wire_cst_log_entry {
+        fn default() -> Self {
+            Self::new_with_null_ptr()
+        }
+    }
     impl NewWithNullPtr for wire_cst_node_info {
         fn new_with_null_ptr() -> Self {
             Self {
@@ -1479,6 +1662,21 @@ mod io {
         fn default() -> Self {
             Self::new_with_null_ptr()
         }
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_cyberfly_mobile_node_wire__crate__api__add_log_entry(
+        port_: i64,
+        level: *mut wire_cst_list_prim_u_8_strict,
+        message: *mut wire_cst_list_prim_u_8_strict,
+    ) {
+        wire__crate__api__add_log_entry_impl(port_, level, message)
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_cyberfly_mobile_node_wire__crate__api__clear_logs(
+    ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
+        wire__crate__api__clear_logs_impl()
     }
 
     #[unsafe(no_mangle)]
@@ -1538,6 +1736,13 @@ mod io {
         key: *mut wire_cst_list_prim_u_8_strict,
     ) {
         wire__crate__api__get_data_impl(port_, db_name, key)
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_cyberfly_mobile_node_wire__crate__api__get_logs(
+        limit: *mut u32,
+    ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
+        wire__crate__api__get_logs_impl(limit)
     }
 
     #[unsafe(no_mangle)]
@@ -1703,6 +1908,11 @@ mod io {
     }
 
     #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_cyberfly_mobile_node_cst_new_box_autoadd_u_32(value: u32) -> *mut u32 {
+        flutter_rust_bridge::for_generated::new_leak_box_ptr(value)
+    }
+
+    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_cyberfly_mobile_node_cst_new_box_autoadd_u_64(value: u64) -> *mut u64 {
         flutter_rust_bridge::for_generated::new_leak_box_ptr(value)
     }
@@ -1728,6 +1938,20 @@ mod io {
         let wrap = wire_cst_list_db_entry_dto {
             ptr: flutter_rust_bridge::for_generated::new_leak_vec_ptr(
                 <wire_cst_db_entry_dto>::new_with_null_ptr(),
+                len,
+            ),
+            len,
+        };
+        flutter_rust_bridge::for_generated::new_leak_box_ptr(wrap)
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_cyberfly_mobile_node_cst_new_list_log_entry(
+        len: i32,
+    ) -> *mut wire_cst_list_log_entry {
+        let wrap = wire_cst_list_log_entry {
+            ptr: flutter_rust_bridge::for_generated::new_leak_vec_ptr(
+                <wire_cst_log_entry>::new_with_null_ptr(),
                 len,
             ),
             len,
@@ -1799,6 +2023,12 @@ mod io {
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
+    pub struct wire_cst_list_log_entry {
+        ptr: *mut wire_cst_log_entry,
+        len: i32,
+    }
+    #[repr(C)]
+    #[derive(Clone, Copy)]
     pub struct wire_cst_list_peer_info_dto {
         ptr: *mut wire_cst_peer_info_dto,
         len: i32,
@@ -1814,6 +2044,13 @@ mod io {
     pub struct wire_cst_list_prim_u_8_strict {
         ptr: *mut u8,
         len: i32,
+    }
+    #[repr(C)]
+    #[derive(Clone, Copy)]
+    pub struct wire_cst_log_entry {
+        timestamp: i64,
+        level: *mut wire_cst_list_prim_u_8_strict,
+        message: *mut wire_cst_list_prim_u_8_strict,
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
@@ -1945,6 +2182,18 @@ mod web {
                 .collect()
         }
     }
+    impl CstDecode<Vec<crate::api::LogEntry>>
+        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> Vec<crate::api::LogEntry> {
+            self.dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
+                .unwrap()
+                .iter()
+                .map(CstDecode::cst_decode)
+                .collect()
+        }
+    }
     impl CstDecode<Vec<crate::api::PeerInfoDto>>
         for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
     {
@@ -1961,6 +2210,25 @@ mod web {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> Vec<u8> {
             self.into_vec()
+        }
+    }
+    impl CstDecode<crate::api::LogEntry> for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::api::LogEntry {
+            let self_ = self
+                .dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
+                .unwrap();
+            assert_eq!(
+                self_.length(),
+                3,
+                "Expected 3 elements, got {}",
+                self_.length()
+            );
+            crate::api::LogEntry {
+                timestamp: self_.get(0).cst_decode(),
+                level: self_.get(1).cst_decode(),
+                message: self_.get(2).cst_decode(),
+            }
         }
     }
     impl CstDecode<crate::api::NodeInfo> for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue {
@@ -2094,6 +2362,21 @@ mod web {
     }
 
     #[wasm_bindgen]
+    pub fn wire__crate__api__add_log_entry(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        level: String,
+        message: String,
+    ) {
+        wire__crate__api__add_log_entry_impl(port_, level, message)
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__clear_logs() -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco
+    {
+        wire__crate__api__clear_logs_impl()
+    }
+
+    #[wasm_bindgen]
     pub fn wire__crate__api__delete_data(
         port_: flutter_rust_bridge::for_generated::MessagePort,
         db_name: String,
@@ -2150,6 +2433,13 @@ mod web {
         key: String,
     ) {
         wire__crate__api__get_data_impl(port_, db_name, key)
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__get_logs(
+        limit: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+    ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
+        wire__crate__api__get_logs_impl(limit)
     }
 
     #[wasm_bindgen]

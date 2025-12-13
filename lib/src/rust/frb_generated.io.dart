@@ -31,6 +31,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   NodeInfo dco_decode_box_autoadd_node_info(dynamic raw);
 
   @protected
+  int dco_decode_box_autoadd_u_32(dynamic raw);
+
+  @protected
   BigInt dco_decode_box_autoadd_u_64(dynamic raw);
 
   @protected
@@ -49,6 +52,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<DbEntryDto> dco_decode_list_db_entry_dto(dynamic raw);
 
   @protected
+  List<LogEntry> dco_decode_list_log_entry(dynamic raw);
+
+  @protected
   List<PeerInfoDto> dco_decode_list_peer_info_dto(dynamic raw);
 
   @protected
@@ -56,6 +62,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
+
+  @protected
+  LogEntry dco_decode_log_entry(dynamic raw);
 
   @protected
   NodeInfo dco_decode_node_info(dynamic raw);
@@ -71,6 +80,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   NodeInfo? dco_decode_opt_box_autoadd_node_info(dynamic raw);
+
+  @protected
+  int? dco_decode_opt_box_autoadd_u_32(dynamic raw);
 
   @protected
   BigInt? dco_decode_opt_box_autoadd_u_64(dynamic raw);
@@ -106,6 +118,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   NodeInfo sse_decode_box_autoadd_node_info(SseDeserializer deserializer);
 
   @protected
+  int sse_decode_box_autoadd_u_32(SseDeserializer deserializer);
+
+  @protected
   BigInt sse_decode_box_autoadd_u_64(SseDeserializer deserializer);
 
   @protected
@@ -124,6 +139,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<DbEntryDto> sse_decode_list_db_entry_dto(SseDeserializer deserializer);
 
   @protected
+  List<LogEntry> sse_decode_list_log_entry(SseDeserializer deserializer);
+
+  @protected
   List<PeerInfoDto> sse_decode_list_peer_info_dto(SseDeserializer deserializer);
 
   @protected
@@ -131,6 +149,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
+
+  @protected
+  LogEntry sse_decode_log_entry(SseDeserializer deserializer);
 
   @protected
   NodeInfo sse_decode_node_info(SseDeserializer deserializer);
@@ -146,6 +167,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   NodeInfo? sse_decode_opt_box_autoadd_node_info(SseDeserializer deserializer);
+
+  @protected
+  int? sse_decode_opt_box_autoadd_u_32(SseDeserializer deserializer);
 
   @protected
   BigInt? sse_decode_opt_box_autoadd_u_64(SseDeserializer deserializer);
@@ -194,6 +218,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   }
 
   @protected
+  ffi.Pointer<ffi.Uint32> cst_encode_box_autoadd_u_32(int raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return wire.cst_new_box_autoadd_u_32(cst_encode_u_32(raw));
+  }
+
+  @protected
   ffi.Pointer<ffi.Uint64> cst_encode_box_autoadd_u_64(BigInt raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return wire.cst_new_box_autoadd_u_64(cst_encode_u_64(raw));
@@ -223,6 +253,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     final ans = wire.cst_new_list_db_entry_dto(raw.length);
     for (var i = 0; i < raw.length; ++i) {
       cst_api_fill_to_wire_db_entry_dto(raw[i], ans.ref.ptr[i]);
+    }
+    return ans;
+  }
+
+  @protected
+  ffi.Pointer<wire_cst_list_log_entry> cst_encode_list_log_entry(
+    List<LogEntry> raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    final ans = wire.cst_new_list_log_entry(raw.length);
+    for (var i = 0; i < raw.length; ++i) {
+      cst_api_fill_to_wire_log_entry(raw[i], ans.ref.ptr[i]);
     }
     return ans;
   }
@@ -282,6 +324,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   }
 
   @protected
+  ffi.Pointer<ffi.Uint32> cst_encode_opt_box_autoadd_u_32(int? raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw == null ? ffi.nullptr : cst_encode_box_autoadd_u_32(raw);
+  }
+
+  @protected
   ffi.Pointer<ffi.Uint64> cst_encode_opt_box_autoadd_u_64(BigInt? raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return raw == null ? ffi.nullptr : cst_encode_box_autoadd_u_64(raw);
@@ -326,6 +374,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ) {
     wireObj.public_key = cst_encode_String(apiObj.publicKey);
     wireObj.secret_key = cst_encode_String(apiObj.secretKey);
+  }
+
+  @protected
+  void cst_api_fill_to_wire_log_entry(
+    LogEntry apiObj,
+    wire_cst_log_entry wireObj,
+  ) {
+    wireObj.timestamp = cst_encode_i_64(apiObj.timestamp);
+    wireObj.level = cst_encode_String(apiObj.level);
+    wireObj.message = cst_encode_String(apiObj.message);
   }
 
   @protected
@@ -405,6 +463,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_u_32(int self, SseSerializer serializer);
+
+  @protected
   void sse_encode_box_autoadd_u_64(BigInt self, SseSerializer serializer);
 
   @protected
@@ -426,6 +487,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_log_entry(List<LogEntry> self, SseSerializer serializer);
+
+  @protected
   void sse_encode_list_peer_info_dto(
     List<PeerInfoDto> self,
     SseSerializer serializer,
@@ -439,6 +503,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     Uint8List self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_log_entry(LogEntry self, SseSerializer serializer);
 
   @protected
   void sse_encode_node_info(NodeInfo self, SseSerializer serializer);
@@ -460,6 +527,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     NodeInfo? self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_opt_box_autoadd_u_32(int? self, SseSerializer serializer);
 
   @protected
   void sse_encode_opt_box_autoadd_u_64(BigInt? self, SseSerializer serializer);
@@ -525,6 +595,45 @@ class RustLibWire implements BaseWire {
       );
   late final _store_dart_post_cobject = _store_dart_post_cobjectPtr
       .asFunction<void Function(DartPostCObjectFnType)>();
+
+  void wire__crate__api__add_log_entry(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> level,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> message,
+  ) {
+    return _wire__crate__api__add_log_entry(port_, level, message);
+  }
+
+  late final _wire__crate__api__add_log_entryPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+          )
+        >
+      >('frbgen_cyberfly_mobile_node_wire__crate__api__add_log_entry');
+  late final _wire__crate__api__add_log_entry =
+      _wire__crate__api__add_log_entryPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            )
+          >();
+
+  WireSyncRust2DartDco wire__crate__api__clear_logs() {
+    return _wire__crate__api__clear_logs();
+  }
+
+  late final _wire__crate__api__clear_logsPtr =
+      _lookup<ffi.NativeFunction<WireSyncRust2DartDco Function()>>(
+        'frbgen_cyberfly_mobile_node_wire__crate__api__clear_logs',
+      );
+  late final _wire__crate__api__clear_logs = _wire__crate__api__clear_logsPtr
+      .asFunction<WireSyncRust2DartDco Function()>();
 
   void wire__crate__api__delete_data(
     int port_,
@@ -695,6 +804,21 @@ class RustLibWire implements BaseWire {
           ffi.Pointer<wire_cst_list_prim_u_8_strict>,
         )
       >();
+
+  WireSyncRust2DartDco wire__crate__api__get_logs(
+    ffi.Pointer<ffi.Uint32> limit,
+  ) {
+    return _wire__crate__api__get_logs(limit);
+  }
+
+  late final _wire__crate__api__get_logsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          WireSyncRust2DartDco Function(ffi.Pointer<ffi.Uint32>)
+        >
+      >('frbgen_cyberfly_mobile_node_wire__crate__api__get_logs');
+  late final _wire__crate__api__get_logs = _wire__crate__api__get_logsPtr
+      .asFunction<WireSyncRust2DartDco Function(ffi.Pointer<ffi.Uint32>)>();
 
   WireSyncRust2DartDco wire__crate__api__get_node_info() {
     return _wire__crate__api__get_node_info();
@@ -1115,6 +1239,17 @@ class RustLibWire implements BaseWire {
   late final _cst_new_box_autoadd_node_info = _cst_new_box_autoadd_node_infoPtr
       .asFunction<ffi.Pointer<wire_cst_node_info> Function()>();
 
+  ffi.Pointer<ffi.Uint32> cst_new_box_autoadd_u_32(int value) {
+    return _cst_new_box_autoadd_u_32(value);
+  }
+
+  late final _cst_new_box_autoadd_u_32Ptr =
+      _lookup<ffi.NativeFunction<ffi.Pointer<ffi.Uint32> Function(ffi.Uint32)>>(
+        'frbgen_cyberfly_mobile_node_cst_new_box_autoadd_u_32',
+      );
+  late final _cst_new_box_autoadd_u_32 = _cst_new_box_autoadd_u_32Ptr
+      .asFunction<ffi.Pointer<ffi.Uint32> Function(int)>();
+
   ffi.Pointer<ffi.Uint64> cst_new_box_autoadd_u_64(int value) {
     return _cst_new_box_autoadd_u_64(value);
   }
@@ -1151,6 +1286,19 @@ class RustLibWire implements BaseWire {
       >('frbgen_cyberfly_mobile_node_cst_new_list_db_entry_dto');
   late final _cst_new_list_db_entry_dto = _cst_new_list_db_entry_dtoPtr
       .asFunction<ffi.Pointer<wire_cst_list_db_entry_dto> Function(int)>();
+
+  ffi.Pointer<wire_cst_list_log_entry> cst_new_list_log_entry(int len) {
+    return _cst_new_list_log_entry(len);
+  }
+
+  late final _cst_new_list_log_entryPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<wire_cst_list_log_entry> Function(ffi.Int32)
+        >
+      >('frbgen_cyberfly_mobile_node_cst_new_list_log_entry');
+  late final _cst_new_list_log_entry = _cst_new_list_log_entryPtr
+      .asFunction<ffi.Pointer<wire_cst_list_log_entry> Function(int)>();
 
   ffi.Pointer<wire_cst_list_peer_info_dto> cst_new_list_peer_info_dto(int len) {
     return _cst_new_list_peer_info_dto(len);
@@ -1258,6 +1406,22 @@ final class wire_cst_db_entry_dto extends ffi.Struct {
 
 final class wire_cst_list_db_entry_dto extends ffi.Struct {
   external ffi.Pointer<wire_cst_db_entry_dto> ptr;
+
+  @ffi.Int32()
+  external int len;
+}
+
+final class wire_cst_log_entry extends ffi.Struct {
+  @ffi.Int64()
+  external int timestamp;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> level;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> message;
+}
+
+final class wire_cst_list_log_entry extends ffi.Struct {
+  external ffi.Pointer<wire_cst_log_entry> ptr;
 
   @ffi.Int32()
   external int len;

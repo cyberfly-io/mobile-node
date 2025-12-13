@@ -33,6 +33,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   NodeInfo dco_decode_box_autoadd_node_info(dynamic raw);
 
   @protected
+  int dco_decode_box_autoadd_u_32(dynamic raw);
+
+  @protected
   BigInt dco_decode_box_autoadd_u_64(dynamic raw);
 
   @protected
@@ -51,6 +54,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<DbEntryDto> dco_decode_list_db_entry_dto(dynamic raw);
 
   @protected
+  List<LogEntry> dco_decode_list_log_entry(dynamic raw);
+
+  @protected
   List<PeerInfoDto> dco_decode_list_peer_info_dto(dynamic raw);
 
   @protected
@@ -58,6 +64,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
+
+  @protected
+  LogEntry dco_decode_log_entry(dynamic raw);
 
   @protected
   NodeInfo dco_decode_node_info(dynamic raw);
@@ -73,6 +82,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   NodeInfo? dco_decode_opt_box_autoadd_node_info(dynamic raw);
+
+  @protected
+  int? dco_decode_opt_box_autoadd_u_32(dynamic raw);
 
   @protected
   BigInt? dco_decode_opt_box_autoadd_u_64(dynamic raw);
@@ -108,6 +120,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   NodeInfo sse_decode_box_autoadd_node_info(SseDeserializer deserializer);
 
   @protected
+  int sse_decode_box_autoadd_u_32(SseDeserializer deserializer);
+
+  @protected
   BigInt sse_decode_box_autoadd_u_64(SseDeserializer deserializer);
 
   @protected
@@ -126,6 +141,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<DbEntryDto> sse_decode_list_db_entry_dto(SseDeserializer deserializer);
 
   @protected
+  List<LogEntry> sse_decode_list_log_entry(SseDeserializer deserializer);
+
+  @protected
   List<PeerInfoDto> sse_decode_list_peer_info_dto(SseDeserializer deserializer);
 
   @protected
@@ -133,6 +151,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
+
+  @protected
+  LogEntry sse_decode_log_entry(SseDeserializer deserializer);
 
   @protected
   NodeInfo sse_decode_node_info(SseDeserializer deserializer);
@@ -148,6 +169,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   NodeInfo? sse_decode_opt_box_autoadd_node_info(SseDeserializer deserializer);
+
+  @protected
+  int? sse_decode_opt_box_autoadd_u_32(SseDeserializer deserializer);
 
   @protected
   BigInt? sse_decode_opt_box_autoadd_u_64(SseDeserializer deserializer);
@@ -189,6 +213,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   JSAny cst_encode_box_autoadd_node_info(NodeInfo raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return cst_encode_node_info(raw);
+  }
+
+  @protected
+  int cst_encode_box_autoadd_u_32(int raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return cst_encode_u_32(raw);
   }
 
   @protected
@@ -236,6 +266,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   }
 
   @protected
+  JSAny cst_encode_list_log_entry(List<LogEntry> raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw.map(cst_encode_log_entry).toList().jsify()!;
+  }
+
+  @protected
   JSAny cst_encode_list_peer_info_dto(List<PeerInfoDto> raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return raw.map(cst_encode_peer_info_dto).toList().jsify()!;
@@ -251,6 +287,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   JSAny cst_encode_list_prim_u_8_strict(Uint8List raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return raw.jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_log_entry(LogEntry raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [
+      cst_encode_i_64(raw.timestamp),
+      cst_encode_String(raw.level),
+      cst_encode_String(raw.message),
+    ].jsify()!;
   }
 
   @protected
@@ -297,6 +343,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   JSAny? cst_encode_opt_box_autoadd_node_info(NodeInfo? raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return raw == null ? null : cst_encode_box_autoadd_node_info(raw);
+  }
+
+  @protected
+  int? cst_encode_opt_box_autoadd_u_32(int? raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw == null ? null : cst_encode_box_autoadd_u_32(raw);
   }
 
   @protected
@@ -362,6 +414,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_u_32(int self, SseSerializer serializer);
+
+  @protected
   void sse_encode_box_autoadd_u_64(BigInt self, SseSerializer serializer);
 
   @protected
@@ -383,6 +438,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_log_entry(List<LogEntry> self, SseSerializer serializer);
+
+  @protected
   void sse_encode_list_peer_info_dto(
     List<PeerInfoDto> self,
     SseSerializer serializer,
@@ -396,6 +454,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     Uint8List self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_log_entry(LogEntry self, SseSerializer serializer);
 
   @protected
   void sse_encode_node_info(NodeInfo self, SseSerializer serializer);
@@ -417,6 +478,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     NodeInfo? self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_opt_box_autoadd_u_32(int? self, SseSerializer serializer);
 
   @protected
   void sse_encode_opt_box_autoadd_u_64(BigInt? self, SseSerializer serializer);
@@ -450,6 +514,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
 class RustLibWire implements BaseWire {
   RustLibWire.fromExternalLibrary(ExternalLibrary lib);
+
+  void wire__crate__api__add_log_entry(
+    NativePortType port_,
+    String level,
+    String message,
+  ) => wasmModule.wire__crate__api__add_log_entry(port_, level, message);
+
+  JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__clear_logs() => wasmModule.wire__crate__api__clear_logs();
 
   void wire__crate__api__delete_data(
     NativePortType port_,
@@ -488,6 +561,10 @@ class RustLibWire implements BaseWire {
     String db_name,
     String key,
   ) => wasmModule.wire__crate__api__get_data(port_, db_name, key);
+
+  JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__get_logs(int? limit) =>
+      wasmModule.wire__crate__api__get_logs(limit);
 
   JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
   wire__crate__api__get_node_info() =>
@@ -612,6 +689,15 @@ external RustLibWasmModule get wasmModule;
 @JS()
 @anonymous
 extension type RustLibWasmModule._(JSObject _) implements JSObject {
+  external void wire__crate__api__add_log_entry(
+    NativePortType port_,
+    String level,
+    String message,
+  );
+
+  external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__clear_logs();
+
   external void wire__crate__api__delete_data(
     NativePortType port_,
     String db_name,
@@ -642,6 +728,9 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     String db_name,
     String key,
   );
+
+  external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__get_logs(int? limit);
 
   external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
   wire__crate__api__get_node_info();

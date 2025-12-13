@@ -151,64 +151,6 @@ class _DataScreenState extends State<DataScreen> {
     }
   }
 
-  Future<void> _deleteEntry(DbOperation op) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: CyberTheme.card(context),
-        title: Text(
-          'Delete Entry', 
-          style: TextStyle(
-            color: CyberTheme.textPrimary(context),
-          ),
-        ),
-        content: Text(
-          'Are you sure you want to delete "${op.key}" from "${op.dbName}"?',
-          style: TextStyle(
-            color: CyberTheme.textSecondary(context),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel', style: TextStyle(color: CyberTheme.textSecondary(context))),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: CyberTheme.error(context)),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      try {
-        await rust_api.deleteData(dbName: op.dbName, key: op.key);
-        if (mounted) {
-          setState(() {
-            _results.removeWhere((r) => r.opId == op.opId);
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Entry deleted', style: TextStyle(color: CyberTheme.textPrimary(context))),
-              backgroundColor: CyberTheme.card(context),
-            ),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to delete: $e', style: TextStyle(color: CyberTheme.textPrimary(context))),
-              backgroundColor: CyberTheme.error(context),
-            ),
-          );
-        }
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -538,14 +480,6 @@ class _DataScreenState extends State<DataScreen> {
                 tooltip: 'Copy value',
               ),
               const SizedBox(width: 4),
-              IconButton(
-                onPressed: () => _deleteEntry(op),
-                icon: const Icon(Icons.delete_outline, size: 16),
-                color: Colors.red.withOpacity(0.7),
-                constraints: const BoxConstraints(),
-                padding: const EdgeInsets.all(4),
-                tooltip: 'Delete entry',
-              ),
             ],
           ),
           const SizedBox(height: 8),

@@ -8,9 +8,13 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'api.freezed.dart';
 
-// These functions are ignored because they are not marked as `pub`: `get_node_holder`, `get_node`, `get_runtime`
+// These functions are ignored because they are not marked as `pub`: `get_log_buffer`, `get_node_holder`, `get_node`, `get_runtime`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `NodeEventDto`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `from`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `from`
+
+/// Add a log entry to the buffer (called from our custom logger)
+Future<void> addLogEntry({required String level, required String message}) =>
+    RustLib.instance.api.crateApiAddLogEntry(level: level, message: message);
 
 /// Initialize logging
 void initLogging() => RustLib.instance.api.crateApiInitLogging();
@@ -161,6 +165,13 @@ Future<List<DbEntryDto>> getAllData() =>
 Future<void> deleteData({required String dbName, required String key}) =>
     RustLib.instance.api.crateApiDeleteData(dbName: dbName, key: key);
 
+/// Get recent logs from the buffer
+List<LogEntry> getLogs({int? limit}) =>
+    RustLib.instance.api.crateApiGetLogs(limit: limit);
+
+/// Clear the log buffer
+void clearLogs() => RustLib.instance.api.crateApiClearLogs();
+
 /// Database entry for Flutter
 @freezed
 sealed class DbEntryDto with _$DbEntryDto {
@@ -179,6 +190,16 @@ sealed class KeyPairDto with _$KeyPairDto {
     required String publicKey,
     required String secretKey,
   }) = _KeyPairDto;
+}
+
+/// Log entry for Flutter console
+@freezed
+sealed class LogEntry with _$LogEntry {
+  const factory LogEntry({
+    required PlatformInt64 timestamp,
+    required String level,
+    required String message,
+  }) = _LogEntry;
 }
 
 /// Node info returned to Flutter
