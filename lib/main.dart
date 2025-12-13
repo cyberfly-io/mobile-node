@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -157,11 +159,31 @@ class _AppEntryPointState extends State<AppEntryPoint> {
     });
   }
 
+  /// Request notification permission on Android 13+ (API 33+)
+  Future<void> _requestNotificationPermission() async {
+    if (!Platform.isAndroid) return;
+    
+    final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+        FlutterLocalNotificationsPlugin();
+    
+    // Request permission on Android 13+
+    final androidPlugin = flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    
+    if (androidPlugin != null) {
+      final granted = await androidPlugin.requestNotificationsPermission();
+      debugPrint('Notification permission granted: $granted');
+    }
+  }
+
   Future<void> _initializeApp() async {
     final walletService = context.read<WalletService>();
     final nodeService = context.read<NodeService>();
     final authService = context.read<AuthService>();
     final themeService = context.read<ThemeService>();
+    
+    // Request notification permission on Android 13+
+    await _requestNotificationPermission();
     
     // Initialize auth service and theme service
     await authService.initialize();

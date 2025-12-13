@@ -160,7 +160,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         authService.isBiometricEnabled,
                         authService.isBiometricAvailable 
                           ? (value) async {
-                              await authService.setBiometricEnabled(value);
+                              if (value) {
+                                // Verify biometric before enabling
+                                final authenticated = await authService.authenticateWithBiometrics(
+                                  reason: 'Verify biometric to enable',
+                                );
+                                if (authenticated) {
+                                  await authService.setBiometricEnabled(true);
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Biometric authentication enabled'),
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    );
+                                  }
+                                }
+                              } else {
+                                await authService.setBiometricEnabled(false);
+                              }
                               setState(() {});
                             }
                           : null,
@@ -797,7 +815,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _showResetConfirmation(BuildContext context, WalletService walletService) async {
     final authService = context.read<AuthService>();
     
-    // Require authentication before allowing wallet deletion
+    // Always require authentication before allowing wallet deletion
     if (authService.isAuthSetup) {
       final authenticated = await authenticateUser(
         context,
@@ -818,6 +836,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
         }
         return;
       }
+    } else {
+      // No auth set up - require user to set up PIN first for security
+      if (!context.mounted) return;
+      final shouldSetupPin = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          backgroundColor: CyberTheme.card(context),
+          title: Text('Security Required', style: TextStyle(color: CyberTheme.primary(context))),
+          content: Text(
+            'For security, you must set up a PIN or biometric authentication before deleting your wallet.',
+            style: TextStyle(color: CyberTheme.textPrimary(context)),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: CyberTheme.primary(context),
+              ),
+              child: const Text('Set Up PIN'),
+            ),
+          ],
+        ),
+      );
+      
+      if (shouldSetupPin == true && context.mounted) {
+        await _setupOrChangePin(context, authService);
+      }
+      return;
     }
     
     if (!context.mounted) return;

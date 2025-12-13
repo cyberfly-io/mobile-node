@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../services/node_service.dart';
 import '../theme/theme.dart';
 
@@ -17,6 +18,7 @@ class _NodeInfoCardState extends State<NodeInfoCard>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _iconRotation;
+  String _appVersion = '';
 
   @override
   void initState() {
@@ -26,6 +28,16 @@ class _NodeInfoCardState extends State<NodeInfoCard>
       vsync: this,
     )..repeat();
     _iconRotation = Tween<double>(begin: 0, end: 1).animate(_controller);
+    _loadAppVersion();
+  }
+
+  Future<void> _loadAppVersion() async {
+    final packageInfo = await PackageInfo.fromPlatform();
+    if (mounted) {
+      setState(() {
+        _appVersion = 'v${packageInfo.version}+${packageInfo.buildNumber}';
+      });
+    }
   }
 
   @override
@@ -127,11 +139,11 @@ class _NodeInfoCardState extends State<NodeInfoCard>
 
           const SizedBox(height: 12),
 
-          // Version
+          // App Version
           _InfoRow(
-            label: 'Version',
-            value: widget.nodeInfo.version,
-            fullValue: widget.nodeInfo.version,
+            label: 'App Version',
+            value: _appVersion.isNotEmpty ? _appVersion : 'Loading...',
+            fullValue: _appVersion,
             icon: Icons.info_outline,
             color: const Color(0xFFFFD93D),
             copyable: false,

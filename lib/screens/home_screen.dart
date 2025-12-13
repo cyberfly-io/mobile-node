@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../services/auth_service.dart';
 import '../services/node_service.dart';
 import '../services/wallet_service.dart';
 import '../services/kadena_service.dart';
+import '../widgets/pin_input_dialog.dart';
 import '../widgets/stat_card.dart';
 import '../widgets/status_indicator.dart';
 import '../widgets/peer_list.dart';
@@ -394,6 +396,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final isDark = CyberTheme.isDark(context);
     final primaryColor = CyberTheme.primary(context);
     final magentaColor = isDark ? CyberColors.neonMagenta : CyberColorsLight.primaryMagenta;
+    final showStakeButton =
+      _stakeInfo?.active != true && (_cflyBalance ?? 0) >= 50000;
 
     return NeonGlowCard(
       glowColor: magentaColor,
@@ -539,7 +543,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ),
               const SizedBox(width: 8),
               // Stake button (only if not already staked)
-              if (_stakeInfo?.active != true)
+              if (showStakeButton)
                 Expanded(
                   child: _buildActionButton(
                     context,
@@ -549,7 +553,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     onPressed: _isLoadingBalance ? null : () => _showStakeDialog(context),
                   ),
                 ),
-              if (_stakeInfo?.active != true) const SizedBox(width: 8),
+              if (showStakeButton) const SizedBox(width: 8),
               // Refresh button
               IconButton(
                 onPressed: _isLoadingBalance ? null : _loadBalanceAndStaking,
@@ -622,6 +626,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
 
     if (confirmed == true && mounted) {
+      // Verify PIN or biometric before staking
+      final authService = context.read<AuthService>();
+      final authenticated = await authenticateUser(
+        context,
+        authService: authService,
+        reason: 'Authenticate to stake CFLY',
+      );
+      if (!authenticated || !mounted) return;
+
       await _performStake();
     }
   }
@@ -776,6 +789,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
 
     if (result != null && mounted) {
+      // Verify PIN or biometric before sending
+      final authService = context.read<AuthService>();
+      final authenticated = await authenticateUser(
+        context,
+        authService: authService,
+        reason: 'Authenticate to send CFLY',
+      );
+      if (!authenticated || !mounted) return;
+
       await _performTransfer(
         toAccount: result['recipient'] as String,
         amount: result['amount'] as double,

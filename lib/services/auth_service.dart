@@ -98,7 +98,9 @@ class AuthService extends ChangeNotifier {
   
   /// Enable or disable biometric authentication
   Future<bool> setBiometricEnabled(bool enabled) async {
+    debugPrint('AuthService: setBiometricEnabled($enabled) called');
     if (enabled && !_isBiometricAvailable) {
+      debugPrint('AuthService: Cannot enable - biometric not available');
       return false;
     }
     
@@ -108,9 +110,11 @@ class AuthService extends ChangeNotifier {
         value: enabled.toString(),
       );
       _isBiometricEnabled = enabled;
+      debugPrint('AuthService: Biometric enabled set to $enabled');
       notifyListeners();
       return true;
     } catch (e) {
+      debugPrint('AuthService: Failed to save biometric setting: $e');
       return false;
     }
   }
@@ -118,18 +122,25 @@ class AuthService extends ChangeNotifier {
   /// Authenticate using biometrics
   Future<bool> authenticateWithBiometrics({String? reason}) async {
     if (!_isBiometricAvailable) {
+      debugPrint('AuthService: Biometric not available');
       return false;
     }
     
     try {
-      return await _localAuth.authenticate(
+      debugPrint('AuthService: Attempting biometric authentication...');
+      final result = await _localAuth.authenticate(
         localizedReason: reason ?? 'Authenticate to continue',
         options: const AuthenticationOptions(
           stickyAuth: true,
-          biometricOnly: true,
+          biometricOnly: false, // Allow device credentials as fallback
+          useErrorDialogs: true,
+          sensitiveTransaction: true,
         ),
       );
-    } on PlatformException {
+      debugPrint('AuthService: Biometric result = $result');
+      return result;
+    } on PlatformException catch (e) {
+      debugPrint('AuthService: Biometric error - ${e.code}: ${e.message}');
       return false;
     }
   }
@@ -137,12 +148,18 @@ class AuthService extends ChangeNotifier {
   /// Authenticate using either biometrics (if enabled) or PIN
   /// Returns true if authentication successful, false otherwise
   Future<AuthResult> authenticate({String? reason}) async {
+    debugPrint('AuthService: authenticate() called');
+    debugPrint('AuthService: biometricEnabled=$_isBiometricEnabled, biometricAvailable=$_isBiometricAvailable, hasPinSet=$_hasPinSet');
+    
     // If biometric is enabled and available, try biometric first
     if (_isBiometricEnabled && _isBiometricAvailable) {
+      debugPrint('AuthService: Trying biometric authentication...');
       final biometricSuccess = await authenticateWithBiometrics(reason: reason);
       if (biometricSuccess) {
+        debugPrint('AuthService: Biometric succeeded');
         return AuthResult.success;
       }
+      debugPrint('AuthService: Biometric failed, falling back to PIN');
       // If biometric fails, fall back to PIN if set
       if (_hasPinSet) {
         return AuthResult.requirePin;
@@ -152,10 +169,12 @@ class AuthService extends ChangeNotifier {
     
     // If only PIN is set
     if (_hasPinSet) {
+      debugPrint('AuthService: Only PIN is set, requiring PIN');
       return AuthResult.requirePin;
     }
     
     // No authentication method set up
+    debugPrint('AuthService: No auth setup');
     return AuthResult.notSetup;
   }
   

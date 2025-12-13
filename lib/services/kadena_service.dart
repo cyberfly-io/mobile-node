@@ -31,8 +31,12 @@ class NodeRegistrationStatus {
       status: json['status'] as String? ?? 'unknown',
       multiaddr: json['multiaddr'] as String? ?? '',
       account: json['account'] as String? ?? '',
-      registerDate: _parseTimestamp(json['registered_at'] ?? json['registerDate']),
-      lastActiveDate: _parseTimestamp(json['last_updated'] ?? json['lastActiveDate']),
+      registerDate: _parseTimestamp(
+        json['registered_at'] ?? json['registerDate'],
+      ),
+      lastActiveDate: _parseTimestamp(
+        json['last_updated'] ?? json['lastActiveDate'],
+      ),
     );
   }
 
@@ -119,7 +123,7 @@ class KadenaService extends ChangeNotifier {
   String? generateLibp2pPeerId() {
     final secretKey = _secretKey;
     if (secretKey == null) return null;
-    
+
     try {
       return rust_api.generatePeerIdFromSecretKey(secretKeyHex: secretKey);
     } catch (e) {
@@ -130,7 +134,10 @@ class KadenaService extends ChangeNotifier {
 
   /// Execute a local (read-only) Pact command
   /// Uses the proper Kadena command format with cmd, hash, sigs
-  Future<Map<String, dynamic>?> _localCommand(String pactCode, {int gasLimit = 150000}) async {
+  Future<Map<String, dynamic>?> _localCommand(
+    String pactCode, {
+    int gasLimit = 150000,
+  }) async {
     try {
       final creationTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
 
@@ -138,10 +145,7 @@ class KadenaService extends ChangeNotifier {
       final payload = {
         'networkId': config.networkId,
         'payload': {
-          'exec': {
-            'data': {},
-            'code': pactCode,
-          },
+          'exec': {'data': {}, 'code': pactCode},
         },
         'signers': <Map<String, dynamic>>[],
         'meta': {
@@ -157,7 +161,7 @@ class KadenaService extends ChangeNotifier {
 
       // JSON encode the payload for the cmd field
       final cmdStr = jsonEncode(payload);
-      
+
       // Compute blake2b hash of the cmd string
       final hash = CryptoLib.blakeHash(cmdStr);
 
@@ -169,11 +173,12 @@ class KadenaService extends ChangeNotifier {
       };
 
       // Use query parameters to skip preflight and signature verification
-      final url = '${config.pactApiUrl}/api/v1/local?preflight=false&signatureVerification=false';
-      
+      final url =
+          '${config.pactApiUrl}/api/v1/local?preflight=false&signatureVerification=false';
+
       debugPrint('_localCommand: sending to $url');
       debugPrint('_localCommand: code = $pactCode');
-      
+
       final response = await http.post(
         Uri.parse(url),
         headers: {'Content-Type': 'application/json'},
@@ -343,7 +348,8 @@ class KadenaService extends ChangeNotifier {
         // Check if it's a "row not found" error (node doesn't exist)
         final errorMsg = result['error']?['message']?.toString() ?? '';
         debugPrint('getNodeInfo: error message = $errorMsg');
-        if (errorMsg.contains('row not found') || errorMsg.contains('with-read')) {
+        if (errorMsg.contains('row not found') ||
+            errorMsg.contains('with-read')) {
           // Node doesn't exist - this is expected for new nodes
           debugPrint('getNodeInfo: node does not exist');
         } else {
@@ -607,18 +613,22 @@ class KadenaService extends ChangeNotifier {
   Future<bool> checkAndClaimRewards(String peerId) async {
     try {
       debugPrint('Checking rewards for node: $peerId');
-      
+
       // Check if rewards are claimable
       final rewardInfo = await calculateRewards(peerId);
       if (rewardInfo != null && rewardInfo.hasClaimableRewards) {
-        debugPrint('Rewards available: ${rewardInfo.days} days, ${rewardInfo.reward} tokens - claiming now');
+        debugPrint(
+          'Rewards available: ${rewardInfo.days} days, ${rewardInfo.reward} tokens - claiming now',
+        );
         final success = await claimReward(peerId);
         if (success) {
           debugPrint('✅ Auto-claimed ${rewardInfo.reward} CFLY tokens');
         }
         return success;
       } else {
-        debugPrint('No claimable rewards yet (days: ${rewardInfo?.days ?? 0}, reward: ${rewardInfo?.reward ?? 0})');
+        debugPrint(
+          'No claimable rewards yet (days: ${rewardInfo?.days ?? 0}, reward: ${rewardInfo?.reward ?? 0})',
+        );
         return false;
       }
     } catch (e) {
@@ -633,19 +643,25 @@ class KadenaService extends ChangeNotifier {
     debugPrint('ensureRegistered called:');
     debugPrint('  peerId: $peerId');
     debugPrint('  multiaddr: $multiaddr');
-    
+
     final nodeInfo = await getNodeInfo(peerId);
-    debugPrint('  existing nodeInfo: ${nodeInfo?.peerId}, status: ${nodeInfo?.status}');
+    debugPrint(
+      '  existing nodeInfo: ${nodeInfo?.peerId}, status: ${nodeInfo?.status}',
+    );
 
     if (nodeInfo == null) {
       // Node not found, register it
       debugPrint('  -> Node not found, creating new node...');
       final success = await createNode(peerId, multiaddr);
-      
+
       // If creation failed with "already exists", the node exists with different format
       // Just return 'active' as the node is already registered
-      if (!success && _error != null && _error!.toLowerCase().contains('already exists')) {
-        debugPrint('  -> Node already exists (different key format), treating as active');
+      if (!success &&
+          _error != null &&
+          _error!.toLowerCase().contains('already exists')) {
+        debugPrint(
+          '  -> Node already exists (different key format), treating as active',
+        );
         _error = null;
         return 'active';
       }
@@ -667,7 +683,7 @@ class KadenaService extends ChangeNotifier {
   /// Get CFLY token balance for an account
   Future<double?> getCFLYBalance(String? account) async {
     if (account == null) return null;
-    
+
     try {
       final code = '(free.cyberfly_token.get-balance "$account")';
       final result = await _localCommand(code);
@@ -677,7 +693,8 @@ class KadenaService extends ChangeNotifier {
         if (data != null) {
           if (data is num) return data.toDouble();
           if (data is Map) {
-            if (data.containsKey('decimal')) return double.tryParse(data['decimal'].toString());
+            if (data.containsKey('decimal'))
+              return double.tryParse(data['decimal'].toString());
             if (data.containsKey('int')) return (data['int'] as num).toDouble();
           }
           return double.tryParse(data.toString());
@@ -714,7 +731,7 @@ class KadenaService extends ChangeNotifier {
   /// Get all nodes owned by the connected account
   Future<List<NodeRegistrationStatus>> getMyNodes() async {
     if (_account == null) return [];
-    
+
     try {
       final code = '(${config.contractModule}.get-account-nodes "$_account")';
       final result = await _localCommand(code);
@@ -723,7 +740,11 @@ class KadenaService extends ChangeNotifier {
         final data = result['data'] as List?;
         if (data != null) {
           return data
-              .map((item) => NodeRegistrationStatus.fromJson(item as Map<String, dynamic>))
+              .map(
+                (item) => NodeRegistrationStatus.fromJson(
+                  item as Map<String, dynamic>,
+                ),
+              )
               .toList();
         }
       }
@@ -744,7 +765,11 @@ class KadenaService extends ChangeNotifier {
         final data = result['data'] as List?;
         if (data != null) {
           return data
-              .map((item) => NodeRegistrationStatus.fromJson(item as Map<String, dynamic>))
+              .map(
+                (item) => NodeRegistrationStatus.fromJson(
+                  item as Map<String, dynamic>,
+                ),
+              )
               .toList();
         }
       }
@@ -952,7 +977,8 @@ class KadenaService extends ChangeNotifier {
 
     try {
       // Use coin.transfer for fungible token transfer
-      final code = '(free.cyberfly_token.transfer "$_account" "$toAccount" $amount)';
+      final code =
+          '(free.cyberfly_token.transfer "$_account" "$toAccount" $amount)';
 
       final capabilities = [
         DappCapp(
@@ -1008,7 +1034,8 @@ class KadenaService extends ChangeNotifier {
     if (value is num) return value.toDouble();
     if (value is Map) {
       if (value.containsKey('int')) return (value['int'] as num).toDouble();
-      if (value.containsKey('decimal')) return double.tryParse(value['decimal'].toString());
+      if (value.containsKey('decimal'))
+        return double.tryParse(value['decimal'].toString());
     }
     return double.tryParse(value.toString());
   }
@@ -1020,12 +1047,18 @@ class NodeStakeInfo {
   final double? amount;
   final String? staker;
   final String? stakeDate;
+  final DateTime? lastClaim;
+  final DateTime? stakeTime;
+  final double? claimed;
 
   NodeStakeInfo({
     required this.active,
     this.amount,
     this.staker,
     this.stakeDate,
+    this.lastClaim,
+    this.stakeTime,
+    this.claimed,
   });
 
   factory NodeStakeInfo.fromJson(Map<String, dynamic> json) {
@@ -1033,10 +1066,25 @@ class NodeStakeInfo {
       if (value == null) return null;
       if (value is num) return value.toDouble();
       if (value is Map) {
-        if (value.containsKey('decimal')) return double.tryParse(value['decimal'].toString());
+        if (value.containsKey('decimal'))
+          return double.tryParse(value['decimal'].toString());
         if (value.containsKey('int')) return (value['int'] as num).toDouble();
       }
       return double.tryParse(value.toString());
+    }
+
+    DateTime? parseTimestamp(dynamic value) {
+      if (value == null) return null;
+      String? timeStr;
+      if (value is String) {
+        timeStr = value;
+      } else if (value is Map && value['timep'] != null) {
+        timeStr = value['timep'] as String?;
+      }
+      if (timeStr != null) {
+        return DateTime.tryParse(timeStr);
+      }
+      return null;
     }
 
     return NodeStakeInfo(
@@ -1044,7 +1092,22 @@ class NodeStakeInfo {
       amount: parseAmount(json['amount']),
       staker: json['staker'] as String?,
       stakeDate: json['stake-date'] as String?,
+      lastClaim: parseTimestamp(json['last_claim'] ?? json['last-claim']),
+      stakeTime: parseTimestamp(json['stake_time'] ?? json['stake-time']),
+      claimed: parseAmount(json['claimed']),
     );
+  }
+
+  /// Calculate next claim time (6 hours after last claim)
+  DateTime? get nextClaimTime {
+    if (lastClaim == null) return null;
+    return lastClaim!.add(const Duration(hours: 6));
+  }
+
+  /// Check if reward can be claimed (6 hours passed)
+  bool get canClaimReward {
+    if (lastClaim == null) return true; // First claim
+    return DateTime.now().isAfter(nextClaimTime!);
   }
 }
 
@@ -1053,10 +1116,7 @@ class StakeStats {
   final int totalStakes;
   final double totalStakedAmount;
 
-  StakeStats({
-    required this.totalStakes,
-    required this.totalStakedAmount,
-  });
+  StakeStats({required this.totalStakes, required this.totalStakedAmount});
 
   factory StakeStats.fromJson(Map<String, dynamic> json) {
     int parseIntValue(dynamic value) {
@@ -1070,7 +1130,8 @@ class StakeStats {
       if (value == null) return 0.0;
       if (value is num) return value.toDouble();
       if (value is Map) {
-        if (value.containsKey('decimal')) return double.tryParse(value['decimal'].toString()) ?? 0.0;
+        if (value.containsKey('decimal'))
+          return double.tryParse(value['decimal'].toString()) ?? 0.0;
         if (value.containsKey('int')) return (value['int'] as num).toDouble();
       }
       return double.tryParse(value.toString()) ?? 0.0;

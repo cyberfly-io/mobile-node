@@ -32,6 +32,8 @@ dependencies:
   flutter_background_service: ^5.0.12
   flutter_background_service_android: ^6.2.8
   flutter_local_notifications: ^18.0.1
+  # App Info
+  package_info_plus: ^8.0.0
 
 dev_dependencies:
   flutter_test:

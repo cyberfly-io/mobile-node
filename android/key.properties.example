@@ -1,0 +1,7 @@
+# Key store properties - DO NOT commit actual key.properties to git!
+# Copy this file to key.properties and fill in your values
+
+storePassword=your_keystore_password
+keyPassword=your_key_password
+keyAlias=cyberfly
+storeFile=/path/to/your/cyberfly-release-key.jks

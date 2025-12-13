@@ -29,16 +29,23 @@ class BackgroundService {
         FlutterLocalNotificationsPlugin();
 
     // Create notification channel for Android
+    // Note: Importance.low is required for ongoing foreground service notifications
+    // to be non-intrusive but still visible. The notification cannot be dismissed
+    // because it's tied to a foreground service (isForegroundMode: true).
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
       notificationChannelId,
       'Cyberfly Node Service',
-      description: 'This channel is used for Cyberfly node background service',
+      description: 'Shows P2P node status and connection information',
       importance: Importance.low,
+      showBadge: false, // Disable badge for ongoing service
+      enableLights: true,
+      ledColor: Color(0xFF00D9FF),
     );
 
     await flutterLocalNotificationsPlugin
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
+          AndroidFlutterLocalNotificationsPlugin
+        >()
         ?.createNotificationChannel(channel);
 
     await _service.configure(
@@ -103,31 +110,50 @@ Future<bool> onIosBackground(ServiceInstance service) async {
 void onStart(ServiceInstance service) async {
   DartPluginRegistrant.ensureInitialized();
 
+  // IMPORTANT: Set as foreground service immediately to prevent notification dismissal
+  if (service is AndroidServiceInstance) {
+    await service.setAsForegroundService();
+  }
+
   // Initialize Rust library in background isolate
   await RustLib.init();
   rust_api.initLogging();
 
-  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-      FlutterLocalNotificationsPlugin();
-
   String nodeId = '';
   bool isNodeRunning = false;
+  int connectedPeers = 0;
+  int uptimeSeconds = 0;
 
-  // Update notification helper
+  // Format uptime for display
+  String formatUptime(int seconds) {
+    if (seconds < 60) return '${seconds}s';
+    if (seconds < 3600) return '${seconds ~/ 60}m';
+    final hours = seconds ~/ 3600;
+    final mins = (seconds % 3600) ~/ 60;
+    return '${hours}h ${mins}m';
+  }
+
+  // Update foreground service notification (cannot be swiped away)
   void updateNotification(String content) {
-    flutterLocalNotificationsPlugin.show(
-      notificationId,
-      'Cyberfly Node',
-      content,
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          notificationChannelId,
-          'Cyberfly Node Service',
-          icon: 'ic_bg_service_small',
-          ongoing: true,
-        ),
-      ),
-    );
+    if (service is AndroidServiceInstance) {
+      service.setForegroundNotificationInfo(
+        title: 'Cyberfly Node',
+        content: content,
+      );
+    }
+  }
+
+  // Update notification with current status
+  void updateStatusNotification() {
+    if (isNodeRunning) {
+      final shortId = nodeId.isNotEmpty ? nodeId.substring(0, 8) : '...';
+      final uptime = formatUptime(uptimeSeconds);
+      updateNotification(
+        '🟢 Running | Peers: $connectedPeers | Uptime: $uptime | $shortId',
+      );
+    } else {
+      updateNotification('🔴 Node stopped');
+    }
   }
 
   // Helper function to start the node
@@ -137,7 +163,7 @@ void onStart(ServiceInstance service) async {
     List<String> bootstrapPeers = const [],
   }) async {
     if (isNodeRunning) return;
-    
+
     updateNotification('Starting node...');
     try {
       final info = await rust_api.startNode(
@@ -145,17 +171,18 @@ void onStart(ServiceInstance service) async {
         walletSecretKey: walletSecretKey,
         bootstrapPeers: bootstrapPeers,
       );
-      
+
       nodeId = info.nodeId;
       isNodeRunning = true;
-      updateNotification('Node running: ${nodeId.substring(0, 8)}...');
+      uptimeSeconds = 0;
+      updateNotification('🟢 Node started: ${nodeId.substring(0, 8)}...');
       service.invoke('update', {
         'type': 'node_started',
         'success': true,
         'nodeId': nodeId,
       });
     } catch (e) {
-      updateNotification('Node failed to start');
+      updateNotification('❌ Node failed to start');
       service.invoke('update', {
         'type': 'node_started',
         'success': false,
@@ -170,28 +197,30 @@ void onStart(ServiceInstance service) async {
       final prefs = await SharedPreferences.getInstance();
       final autoStart = prefs.getBool('autoStart') ?? true;
       final runInBackground = prefs.getBool('runInBackground') ?? true;
-      
+
       if (!autoStart || !runInBackground) {
-        updateNotification('Waiting for app...');
+        updateNotification('⏳ Waiting for app...');
         return;
       }
-      
+
       // Load wallet keys from secure storage
       const secureStorage = FlutterSecureStorage();
-      final walletSecretKey = await secureStorage.read(key: 'wallet_secret_key');
-      
+      final walletSecretKey = await secureStorage.read(
+        key: 'wallet_secret_key',
+      );
+
       if (walletSecretKey == null) {
-        updateNotification('No wallet configured');
+        updateNotification('⚠️ No wallet configured');
         return;
       }
-      
+
       // Get data directory
       final appDir = await getApplicationDocumentsDirectory();
       final dataDir = '${appDir.path}/cyberfly_node';
-      
+
       // Load bootstrap peers from preferences
       final bootstrapPeersJson = prefs.getStringList('bootstrapPeers') ?? [];
-      
+
       debugPrint('Background service auto-starting node...');
       await startNodeWithConfig(
         dataDir: dataDir,
@@ -200,7 +229,7 @@ void onStart(ServiceInstance service) async {
       );
     } catch (e) {
       debugPrint('Auto-start failed: $e');
-      updateNotification('Auto-start failed');
+      updateNotification('❌ Auto-start failed');
     }
   }
 
@@ -220,27 +249,25 @@ void onStart(ServiceInstance service) async {
   });
 
   service.on('stop_node').listen((event) async {
-    updateNotification('Stopping node...');
+    updateNotification('⏹️ Stopping node...');
     try {
       await rust_api.stopNode();
       isNodeRunning = false;
       nodeId = '';
-      updateNotification('Node stopped');
-      service.invoke('update', {
-        'type': 'node_stopped',
-        'success': true,
-      });
+      connectedPeers = 0;
+      uptimeSeconds = 0;
+      updateNotification('🔴 Node stopped');
+      service.invoke('update', {'type': 'node_stopped', 'success': true});
     } catch (e) {
-      service.invoke('update', {
-        'type': 'error',
-        'message': e.toString(),
-      });
+      service.invoke('update', {'type': 'error', 'message': e.toString()});
     }
   });
 
   service.on('get_status').listen((event) async {
     try {
       final status = await rust_api.getNodeStatus();
+      connectedPeers = status.connectedPeers;
+      uptimeSeconds = status.uptimeSeconds.toInt();
       service.invoke('update', {
         'type': 'node_status',
         'isRunning': status.isRunning,
@@ -249,8 +276,7 @@ void onStart(ServiceInstance service) async {
       });
 
       if (status.isRunning) {
-        updateNotification(
-            'Peers: ${status.connectedPeers} | ${status.nodeId?.substring(0, 8) ?? ""}...');
+        updateStatusNotification();
       }
     } catch (e) {
       debugPrint('Error getting status: $e');
@@ -282,11 +308,17 @@ void onStart(ServiceInstance service) async {
     service.stopSelf();
   });
 
-  // Start periodic status updates
-  Timer.periodic(const Duration(seconds: 30), (timer) async {
+  // Start periodic status updates and notification refresh
+  Timer.periodic(const Duration(seconds: 10), (timer) async {
     if (isNodeRunning) {
       try {
         final status = await rust_api.getNodeStatus();
+        connectedPeers = status.connectedPeers;
+        uptimeSeconds = status.uptimeSeconds.toInt();
+
+        // Update notification with current status
+        updateStatusNotification();
+
         service.invoke('update', {
           'type': 'node_status',
           'isRunning': status.isRunning,
@@ -298,8 +330,8 @@ void onStart(ServiceInstance service) async {
     }
   });
 
-  updateNotification('Service ready');
-  
+  updateNotification('🔄 Service ready');
+
   // Auto-start node if service started on boot
   autoStartOnBoot();
 }
