@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/node_service.dart';
 import '../services/wallet_service.dart';
 import '../services/auth_service.dart';
@@ -255,10 +256,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       'View source code',
                       Icons.code,
                       CyberTheme.primary(context),
-                      () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Opening GitHub...')),
-                        );
+                      () async {
+                        final uri = Uri.parse('https://github.com/cyberfly-io/mobile-node');
+                        try {
+                          await launchUrl(uri, mode: LaunchMode.externalApplication);
+                        } catch (e) {
+                          debugPrint('Could not launch URL: $e');
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Could not open link')),
+                            );
+                          }
+                        }
                       },
                     ),
                   ]),

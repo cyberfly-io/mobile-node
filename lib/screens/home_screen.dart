@@ -12,6 +12,7 @@ import '../widgets/peer_list.dart';
 import '../widgets/node_info_card.dart';
 import '../theme/theme.dart';
 import 'console_screen.dart';
+import 'send_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -538,7 +539,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   label: 'Send',
                   icon: Icons.send,
                   color: magentaColor,
-                  onPressed: _isLoadingBalance ? null : () => _showTransferDialog(context),
+                  onPressed: _isLoadingBalance ? null : () => _navigateToSendScreen(context),
                 ),
               ),
               const SizedBox(width: 8),
@@ -636,6 +637,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       if (!authenticated || !mounted) return;
 
       await _performStake();
+    }
+  }
+
+  Future<void> _navigateToSendScreen(BuildContext context) async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (context) => const SendScreen()),
+    );
+    
+    // Refresh balance if transfer was successful
+    if (result == true && mounted) {
+      await _loadBalanceAndStaking();
     }
   }
 

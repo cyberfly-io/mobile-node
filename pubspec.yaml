@@ -34,6 +34,9 @@ dependencies:
   flutter_local_notifications: ^18.0.1
   # App Info
   package_info_plus: ^8.0.0
+  url_launcher: ^6.3.2
+  # QR Code Scanner
+  mobile_scanner: ^6.0.2
 
 dev_dependencies:
   flutter_test:

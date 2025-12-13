@@ -16,10 +16,25 @@
     <!-- Required for foreground service notification -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     
+    <!-- Camera permission for QR code scanner -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    
     <!-- Declare that app does NOT use sensitive permissions -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.location" android:required="false" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
+
+    <!-- Required for url_launcher on Android 11+ -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="http" />
+        </intent>
+    </queries>
     
     <application
         android:label="Cyberfly Node"
