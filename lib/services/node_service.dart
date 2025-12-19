@@ -265,7 +265,7 @@ class NodeService extends ChangeNotifier {
   }
 
   /// Start the node with wallet identity
-  Future<void> startNode() async {
+  Future<void> startNode({bool forceDirectMode = false}) async {
     if (_isStarting || _status.isRunning) return;
     
     // Ensure Rust library is initialized
@@ -292,54 +292,60 @@ class NodeService extends ChangeNotifier {
       debugPrint('Starting node with data dir: $dataDir');
       debugPrint('Wallet secret key provided: ${_walletSecretKey != null}');
       debugPrint('Using background service: $_useBackgroundService');
+      debugPrint('Force direct mode: $forceDirectMode');
 
+      // Always start background service first for persistent notification
+      // Even in direct mode, we need the foreground service for the notification
       if (_useBackgroundService) {
-        // Start background service first
+        debugPrint('Starting background service for persistent notification...');
         await _backgroundService.startService();
-        debugPrint('Background service started');
-        
-        // Then tell it to start the node
-        _backgroundService.sendToService('start_node', {
-          'dataDir': dataDir,
-          'walletSecretKey': _walletSecretKey,
-          'bootstrapPeers': <String>[],
-        });
-        // Response will come via _setupBackgroundServiceListener
-      } else {
-        // Direct mode - start the node via FFI
-        final nodeInfo = await rust_api.startNode(
-          dataDir: dataDir,
-          walletSecretKey: _walletSecretKey,
-          bootstrapPeers: const [],
-        );
-        
-        _nodeInfo = NodeInfo.fromRust(nodeInfo);
-        _status = NodeStatus(
-          isRunning: true,
-          connectedPeers: 0,
-          discoveredPeers: 0,
-          uptimeSeconds: 0,
-          health: 'healthy',
-          gossipMessagesReceived: 0,
-          storageSizeBytes: 0,
-          totalKeys: 0,
-          totalOperations: 0,
-          latencyRequestsSent: 0,
-          latencyResponsesReceived: 0,
-        );
-        _isStarting = false;
-        notifyListeners();
-        
-        debugPrint('Node started: ${_nodeInfo?.nodeId}');
-        
-        // Start fast polling initially, then slow down (non-blocking)
-        _startFastPolling();
+        await Future.delayed(const Duration(milliseconds: 500)); // Wait for service to initialize
       }
+      
+      // Always use direct FFI mode for initial start from UI for reliability
+      // Background service will maintain the notification
+      debugPrint('Starting node in direct mode via FFI...');
+      final nodeInfo = await rust_api.startNode(
+        dataDir: dataDir,
+        walletSecretKey: _walletSecretKey,
+        bootstrapPeers: const [],
+      );
+      
+      _nodeInfo = NodeInfo.fromRust(nodeInfo);
+      _status = NodeStatus(
+        isRunning: true,
+        connectedPeers: 0,
+        discoveredPeers: 0,
+        uptimeSeconds: 0,
+        health: 'healthy',
+        gossipMessagesReceived: 0,
+        storageSizeBytes: 0,
+        totalKeys: 0,
+        totalOperations: 0,
+        latencyRequestsSent: 0,
+        latencyResponsesReceived: 0,
+      );
+      _isStarting = false;
+      notifyListeners();
+      
+      debugPrint('Node started successfully: ${_nodeInfo?.nodeId}');
+      
+      // Update background service notification with node info
+      if (_useBackgroundService) {
+        _backgroundService.sendToService('update_notification', {
+          'title': 'Cyberfly Node Running',
+          'content': 'Syncing decentralized data • 0 peers connected',
+        });
+      }
+      
+      // Start fast polling initially, then slow down (non-blocking)
+      _startFastPolling();
     } catch (e) {
       _error = 'Failed to start node: $e';
       debugPrint(_error);
       _isStarting = false;
       notifyListeners();
+      rethrow; // Rethrow so NodeStartScreen can show error
     }
   }
 
@@ -488,6 +494,14 @@ class NodeService extends ChangeNotifier {
       if (peersChanged) {
         _peers = peersDto.map((p) => PeerInfo.fromDto(p)).toList();
         _lastPeersHash = newPeersHash;
+        
+        // Update background service notification with peer count
+        if (_useBackgroundService && _status.isRunning) {
+          final peerText = _status.connectedPeers == 1 ? 'peer' : 'peers';
+          _backgroundService.sendToService('update_notification', {
+            'content': 'Syncing decentralized data • ${_status.connectedPeers} $peerText connected',
+          });
+        }
       }
       
       // Always notify when running (uptime changes) or when other fields changed

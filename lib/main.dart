@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/main_screen.dart';
 import 'screens/wallet_setup_screen.dart';
+import 'screens/node_start_screen.dart';
 import 'services/wallet_service.dart';
 import 'services/kadena_service.dart';
 import 'services/node_service.dart';
@@ -211,9 +212,12 @@ class _AppEntryPointState extends State<AppEntryPoint> {
         publicKey: walletService.walletInfo!.publicKey,
       );
       
-      // Auto-start node (check autoStart preference)
+      // Check if user has started node before
+      final hasStartedBefore = prefs.getBool('hasStartedNodeBefore') ?? false;
+      
+      // Only auto-start if user has started before AND autoStart is enabled
       final autoStart = prefs.getBool('autoStart') ?? true;
-      if (autoStart) {
+      if (hasStartedBefore && autoStart) {
         // Don't block app startup - start node in background
         nodeService.startNode().then((_) async {
           debugPrint('Node auto-started successfully');
@@ -354,10 +358,7 @@ class _AppEntryPointState extends State<AppEntryPoint> {
               publicKey: walletService.walletInfo!.publicKey,
             );
             
-            // Start node in background (don't block UI)
-            nodeService.startNode().catchError((e) {
-              debugPrint('Failed to start node: $e');
-            });
+            // Don't auto-start - let NodeStartScreen handle it
           }
           setState(() {
             _hasWallet = true;
@@ -366,6 +367,23 @@ class _AppEntryPointState extends State<AppEntryPoint> {
       );
     }
 
-    return const MainScreen();
+    // Check if user has started node before
+    return FutureBuilder<bool>(
+      future: SharedPreferences.getInstance().then(
+        (prefs) => prefs.getBool('hasStartedNodeBefore') ?? false,
+      ),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const SizedBox.shrink();
+        }
+        
+        final hasStartedBefore = snapshot.data!;
+        if (!hasStartedBefore) {
+          return const NodeStartScreen();
+        }
+        
+        return const MainScreen();
+      },
+    );
   }
 }

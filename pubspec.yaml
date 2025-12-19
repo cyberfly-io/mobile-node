@@ -2,7 +2,7 @@ name: cyberfly_mobile_node
 description: "Cyberfly P2P Mobile Node - Flutter app with Rust native library for decentralized networking"
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.0.1+5
 
 environment:
   sdk: ^3.8.1
@@ -37,6 +37,7 @@ dependencies:
   url_launcher: ^6.3.2
   # QR Code Scanner
   mobile_scanner: ^6.0.2
+  qr_flutter: ^4.1.0
 
 dev_dependencies:
   flutter_test:

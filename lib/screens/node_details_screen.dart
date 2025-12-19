@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/kadena_service.dart';
 import '../services/wallet_service.dart';
 import '../widgets/pin_input_dialog.dart';
+import '../widgets/animated_background.dart';
+import '../widgets/ui_components.dart' hide StatusBadge;
 import '../theme/theme.dart';
 
 class NodeDetailsScreen extends StatefulWidget {
@@ -17,7 +18,7 @@ class NodeDetailsScreen extends StatefulWidget {
   State<NodeDetailsScreen> createState() => _NodeDetailsScreenState();
 }
 
-class _NodeDetailsScreenState extends State<NodeDetailsScreen> {
+class _NodeDetailsScreenState extends State<NodeDetailsScreen> with TickerProviderStateMixin {
   static const double _minStakeCfly = 50000;
 
   bool _isLoading = true;
@@ -35,7 +36,6 @@ class _NodeDetailsScreenState extends State<NodeDetailsScreen> {
   @override
   void initState() {
     super.initState();
-    // Schedule after the build phase to avoid setState during build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadNodeData();
     });
@@ -49,13 +49,8 @@ class _NodeDetailsScreenState extends State<NodeDetailsScreen> {
 
   void _startCountdownTimer() {
     _countdownTimer?.cancel();
-
     if (_stakeInfo?.nextClaimTime == null) return;
-
-    // Update immediately
     _updateRemainingTime();
-
-    // Update every second
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       _updateRemainingTime();
     });
@@ -63,10 +58,8 @@ class _NodeDetailsScreenState extends State<NodeDetailsScreen> {
 
   void _updateRemainingTime() {
     if (_stakeInfo?.nextClaimTime == null) return;
-
     final now = DateTime.now();
     final nextClaim = _stakeInfo!.nextClaimTime!;
-
     if (now.isBefore(nextClaim)) {
       setState(() {
         _remainingTime = nextClaim.difference(now);
@@ -81,17 +74,14 @@ class _NodeDetailsScreenState extends State<NodeDetailsScreen> {
 
   String _formatCountdown(Duration duration) {
     if (duration.inSeconds <= 0) return '00:00:00';
-
     final hours = duration.inHours.toString().padLeft(2, '0');
     final minutes = (duration.inMinutes % 60).toString().padLeft(2, '0');
     final seconds = (duration.inSeconds % 60).toString().padLeft(2, '0');
-
     return '$hours:$minutes:$seconds';
   }
 
   Future<void> _loadNodeData() async {
     setState(() => _isLoading = true);
-
     final kadenaService = context.read<KadenaService>();
     final walletService = context.read<WalletService>();
 
@@ -112,7 +102,6 @@ class _NodeDetailsScreenState extends State<NodeDetailsScreen> {
       _apy = results[3] as double?;
       _cflyBalance = results[4] as double?;
 
-      // Start countdown timer if stake info is available
       if (_stakeInfo != null && _stakeInfo!.active) {
         _startCountdownTimer();
       }
@@ -134,7 +123,7 @@ class _NodeDetailsScreenState extends State<NodeDetailsScreen> {
 
     if ((_cflyBalance ?? 0) < _minStakeCfly) {
       _showSnackBar(
-        'Insufficient balance. You need at least ${_minStakeCfly.toStringAsFixed(0)} CFLY to stake.',
+        'Insufficient balance. Need ${_minStakeCfly.toStringAsFixed(0)} CFLY.',
         isError: true,
       );
       return;
@@ -142,37 +131,25 @@ class _NodeDetailsScreenState extends State<NodeDetailsScreen> {
 
     final confirmed = await _showConfirmDialog(
       title: 'Stake 50,000 CFLY',
-      message:
-          'Are you sure you want to stake 50,000 CFLY on this node? '
-          'You will earn rewards based on the current APY.',
+      message: 'Are you sure you want to stake 50,000 CFLY on this node?',
       confirmText: 'Stake',
-      confirmColor: Colors.green,
+      confirmColor: CyberColors.neonGreen,
     );
-
     if (!confirmed) return;
 
-    // Verify PIN or biometric before staking
     final authService = context.read<AuthService>();
-    final authenticated = await authenticateUser(
-      context,
-      authService: authService,
-      reason: 'Authenticate to stake CFLY',
-    );
-    if (!authenticated || !mounted) return;
+    final authenticated = await authenticateUser(context, authService: authService, reason: 'Authenticate to stake');
+    if (!mounted) return;
+    if (!authenticated) return;
 
     setState(() => _isActionLoading = true);
-
     final kadenaService = context.read<KadenaService>();
     final success = await kadenaService.stakeOnNode(widget.peerId);
-
+    if (!mounted) return;
     setState(() => _isActionLoading = false);
 
     if (success) {
-      _showSnackBar(
-        'Staking transaction submitted successfully!',
-        isSuccess: true,
-      );
-      await Future.delayed(const Duration(seconds: 2));
+      _showSnackBar('Staking successful!', isSuccess: true);
       _loadNodeData();
     } else {
       _showSnackBar(kadenaService.error ?? 'Staking failed', isError: true);
@@ -181,38 +158,26 @@ class _NodeDetailsScreenState extends State<NodeDetailsScreen> {
 
   Future<void> _handleUnstake() async {
     final confirmed = await _showConfirmDialog(
-      title: 'Unstake from Node',
-      message:
-          'Are you sure you want to unstake from this node? '
-          'Your 50,000 CFLY will be returned to your account.',
+      title: 'Unstake',
+      message: 'Are you sure you want to unstake?',
       confirmText: 'Unstake',
-      confirmColor: Colors.red,
+      confirmColor: CyberColors.neonRed,
     );
-
     if (!confirmed) return;
 
-    // Verify PIN or biometric before unstaking
     final authService = context.read<AuthService>();
-    final authenticated = await authenticateUser(
-      context,
-      authService: authService,
-      reason: 'Authenticate to unstake CFLY',
-    );
-    if (!authenticated || !mounted) return;
+    final authenticated = await authenticateUser(context, authService: authService, reason: 'Authenticate to unstake');
+    if (!mounted) return;
+    if (!authenticated) return;
 
     setState(() => _isActionLoading = true);
-
     final kadenaService = context.read<KadenaService>();
     final success = await kadenaService.unstakeFromNode(widget.peerId);
-
+    if (!mounted) return;
     setState(() => _isActionLoading = false);
 
     if (success) {
-      _showSnackBar(
-        'Unstaking transaction submitted successfully!',
-        isSuccess: true,
-      );
-      await Future.delayed(const Duration(seconds: 2));
+      _showSnackBar('Unstaking successful!', isSuccess: true);
       _loadNodeData();
     } else {
       _showSnackBar(kadenaService.error ?? 'Unstaking failed', isError: true);
@@ -221,33 +186,26 @@ class _NodeDetailsScreenState extends State<NodeDetailsScreen> {
 
   Future<void> _handleClaim() async {
     if (_claimableReward == null || _claimableReward!.reward <= 0) {
-      _showSnackBar('No rewards to claim', isError: true);
+      _showSnackBar('No rewards!', isError: true);
       return;
     }
 
     final confirmed = await _showConfirmDialog(
       title: 'Claim Rewards',
-      message:
-          'Claim ${_claimableReward!.reward.toStringAsFixed(2)} CFLY in rewards?',
+      message: 'Claim ${_claimableReward!.reward.toStringAsFixed(2)} CFLY?',
       confirmText: 'Claim',
-      confirmColor: CyberTheme.primary(context),
+      confirmColor: CyberColors.neonCyan,
     );
-
     if (!confirmed) return;
 
     setState(() => _isActionLoading = true);
-
     final kadenaService = context.read<KadenaService>();
     final success = await kadenaService.claimReward(widget.peerId);
-
+    if (!mounted) return;
     setState(() => _isActionLoading = false);
 
     if (success) {
-      _showSnackBar(
-        'Claim transaction submitted successfully!',
-        isSuccess: true,
-      );
-      await Future.delayed(const Duration(seconds: 2));
+      _showSnackBar('Rewards claimed!', isSuccess: true);
       _loadNodeData();
     } else {
       _showSnackBar(kadenaService.error ?? 'Claim failed', isError: true);
@@ -260,59 +218,31 @@ class _NodeDetailsScreenState extends State<NodeDetailsScreen> {
     required String confirmText,
     required Color confirmColor,
   }) async {
-    final isDark = CyberTheme.isDark(context);
-    final onPrimary = isDark ? Colors.black : Colors.white;
-
     return await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
             backgroundColor: CyberTheme.card(context),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: Text(
-              title,
-              style: TextStyle(color: CyberTheme.textPrimary(context)),
-            ),
-            content: Text(
-              message,
-              style: TextStyle(color: CyberTheme.textSecondary(context)),
-            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: confirmColor.withOpacity(0.5))),
+            title: Text(title, style: TextStyle(color: CyberTheme.textPrimary(context), fontFamily: 'monospace')),
+            content: Text(message, style: TextStyle(color: CyberTheme.textSecondary(context))),
             actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: Text(
-                  'Cancel',
-                  style: TextStyle(color: CyberTheme.textSecondary(context)),
-                ),
-              ),
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: confirmColor,
-                  foregroundColor: onPrimary,
-                ),
+                style: ElevatedButton.styleFrom(backgroundColor: confirmColor, foregroundColor: Colors.black),
                 child: Text(confirmText),
               ),
             ],
           ),
-        ) ??
-        false;
+        ) ?? false;
   }
 
-  void _showSnackBar(
-    String message, {
-    bool isError = false,
-    bool isSuccess = false,
-  }) {
+  void _showSnackBar(String message, {bool isError = false, bool isSuccess = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
-        backgroundColor: isError
-            ? CyberTheme.error(context)
-            : isSuccess
-            ? CyberTheme.success(context)
-            : CyberTheme.primary(context),
+        content: Text(message, style: const TextStyle(fontFamily: 'monospace')),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: isError ? CyberTheme.error(context) : isSuccess ? CyberTheme.success(context) : CyberTheme.primary(context),
       ),
     );
   }
@@ -323,32 +253,67 @@ class _NodeDetailsScreenState extends State<NodeDetailsScreen> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: const Text('Node Details'),
-        backgroundColor: CyberTheme.appBarBackground(context),
-        foregroundColor: CyberTheme.textPrimary(context),
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: _isLoading
-                ? SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: CyberTheme.primary(context),
-                    ),
-                  )
-                : Icon(Icons.refresh, color: CyberTheme.primary(context)),
-            onPressed: _isLoading ? null : _loadNodeData,
+      body: Stack(
+        children: [
+          const AnimatedBackground(),
+          CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              _buildSliverAppBar(context),
+              if (_isLoading)
+                const SliverFillRemaining(child: Center(child: GlowingProgressIndicator()))
+              else if (_nodeInfo == null)
+                SliverFillRemaining(child: _buildNotFound())
+              else
+                _buildSliversContent(context, walletService),
+            ],
           ),
+          if (_isActionLoading)
+            Container(
+              color: Colors.black54,
+              child: const Center(child: GlowingProgressIndicator()),
+            ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _nodeInfo == null
-          ? _buildNotFound()
-          : _buildContent(walletService),
+    );
+  }
+
+  Widget _buildSliverAppBar(BuildContext context) {
+    final primaryColor = CyberTheme.primary(context);
+    return SliverAppBar(
+      expandedHeight: 120,
+      floating: false,
+      pinned: true,
+      stretch: true,
+      backgroundColor: Colors.transparent,
+      flexibleSpace: FlexibleSpaceBar(
+        titlePadding: const EdgeInsets.only(left: 56, bottom: 16),
+        title: Text(
+          'NODE DETAILS',
+          style: TextStyle(
+            fontFamily: 'monospace',
+            fontWeight: FontWeight.bold,
+            letterSpacing: 2,
+            shadows: [Shadow(color: primaryColor.withOpacity(0.5), blurRadius: 8)],
+          ),
+        ),
+        background: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Colors.black, Colors.transparent],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh),
+          onPressed: _isLoading ? null : _loadNodeData,
+          color: primaryColor,
+        ),
+      ],
     );
   }
 
@@ -357,538 +322,265 @@ class _NodeDetailsScreenState extends State<NodeDetailsScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.error_outline,
-            size: 80,
-            color: CyberTheme.textDim(context),
-          ),
+          const Icon(Icons.dns_outlined, size: 80, color: Colors.grey),
           const SizedBox(height: 24),
-          Text(
-            'Node Not Found',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: CyberTheme.textPrimary(context),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'This node could not be found in the network',
-            style: TextStyle(
-              fontSize: 16,
-              color: CyberTheme.textSecondary(context),
-            ),
-          ),
+          const Text('Node not found', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Go Back'),
-          ),
+          NeonButton(text: 'Go Back', onPressed: () => Navigator.pop(context)),
         ],
       ),
     );
   }
 
-  Widget _buildContent(WalletService walletService) {
+  Widget _buildSliversContent(BuildContext context, WalletService walletService) {
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
+      sliver: SliverList(
+        delegate: SliverChildListDelegate([
+          _buildStatusHeader(),
+          const SizedBox(height: 24),
+          _buildInfoSection(),
+          const SizedBox(height: 24),
+          _buildStakingStatsSection(),
+          const SizedBox(height: 24),
+          if (_stakeInfo?.active == true && _nodeInfo?.isActive == true) _buildCountdownSection(),
+          const SizedBox(height: 32),
+          _buildActionsSection(walletService),
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildStatusHeader() {
     final isActive = _nodeInfo?.isActive ?? false;
-    final isStaked = _stakeInfo?.active ?? false;
-    final canStake =
-        !isStaked && walletService.hasWallet && (_cflyBalance ?? 0) >= _minStakeCfly;
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Node Info Card
-          _buildCard(
-            title: 'Node Information',
-            icon: Icons.dns,
-            iconColor: CyberTheme.primary(context),
-            children: [
-              _buildInfoRow('Peer ID', widget.peerId, copyable: true),
-              _buildInfoRow(
-                'Status',
-                isActive ? 'Active' : 'Inactive',
-                valueColor: isActive ? Colors.green : Colors.grey,
-              ),
-              _buildInfoRow('Multiaddr', _nodeInfo!.multiaddr, copyable: true),
-              _buildInfoRow('Owner', _nodeInfo!.account),
-              if (_nodeInfo?.registerDate != null)
-                _buildInfoRow('Registered', _nodeInfo!.registerDate!),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-
-          // Staking Stats Card
-          _buildCard(
-            title: 'Staking Information',
-            icon: Icons.bolt,
-            iconColor: Colors.orange,
-            children: [_buildStatsGrid()],
-          ),
-
-          const SizedBox(height: 16),
-
-          // Next Claim Countdown Card (only show if staked and no claimable rewards)
-          if (_stakeInfo?.active == true &&
-              _nodeInfo?.isActive == true &&
-              (_claimableReward == null || _claimableReward!.reward <= 0) &&
-              _remainingTime.inSeconds > 0)
-            _buildCountdownCard(),
-
-          if (_stakeInfo?.active == true &&
-              _nodeInfo?.isActive == true &&
-              (_claimableReward == null || _claimableReward!.reward <= 0) &&
-              _remainingTime.inSeconds > 0)
-            const SizedBox(height: 16),
-
-          // Actions Card
-          if (walletService.hasWallet)
-            _buildActionsCard(canStake, isStaked)
-          else
-            _buildConnectWalletCard(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCountdownCard() {
-    final isDark = CyberTheme.isDark(context);
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: isDark
-              ? [const Color(0xFF2E7D32), const Color(0xFF4CAF50)]
-              : [const Color(0xFF43E97B), const Color(0xFF38F9D7)],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: (isDark ? const Color(0xFF2E7D32) : const Color(0xFF43E97B))
-                .withOpacity(0.3),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+    return Center(
       child: Column(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.schedule, color: Colors.white, size: 28),
-              const SizedBox(width: 12),
-              Text(
-                'Next Claim Countdown',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Text(
-            _formatCountdown(_remainingTime),
-            style: TextStyle(
-              fontSize: 48,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-              fontFamily: 'monospace',
-              letterSpacing: 4,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            width: 80,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.3),
-              borderRadius: BorderRadius.circular(2),
-            ),
+          StatusBadge(
+            status: isActive ? NodeConnectionStatus.online : NodeConnectionStatus.offline,
+            label: isActive ? 'NODE ACTIVE' : 'NODE INACTIVE',
           ),
           const SizedBox(height: 12),
           Text(
-            'Rewards can be claimed every 6 hours',
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.white.withOpacity(0.8),
-            ),
+            widget.peerId.length > 20 ? '${widget.peerId.substring(0, 12)}...${widget.peerId.substring(widget.peerId.length - 8)}' : widget.peerId,
+            style: TextStyle(fontFamily: 'monospace', color: CyberTheme.textDim(context), fontSize: 13),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildCard({
-    required String title,
-    required IconData icon,
-    required Color iconColor,
-    required List<Widget> children,
-  }) {
-    final isDark = CyberTheme.isDark(context);
-
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark
-            ? CyberColors.backgroundCard
-            : CyberColorsLight.backgroundCard,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: iconColor.withOpacity(0.3)),
-      ),
+  Widget _buildInfoSection() {
+    return NeonGlowCard(
+      glowColor: CyberTheme.primary(context),
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.1),
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(15),
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: iconColor.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(icon, color: iconColor, size: 20),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: CyberTheme.textPrimary(context),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Content
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: children,
-            ),
-          ),
+          _buildSectionTitle('IDENTIFIERS', Icons.fingerprint),
+          const SizedBox(height: 16),
+          InfoRow(icon: Icons.vpn_key_outlined, label: 'Peer ID', value: widget.peerId, copyable: true),
+          InfoRow(icon: Icons.link, label: 'Multiaddr', value: _nodeInfo!.multiaddr, copyable: true),
+          InfoRow(icon: Icons.account_circle_outlined, label: 'Owner', value: _nodeInfo!.account, copyable: true),
+          if (_nodeInfo?.registerDate != null)
+            InfoRow(icon: Icons.calendar_today_outlined, label: 'Registered', value: _nodeInfo!.registerDate!),
         ],
       ),
     );
   }
 
-  Widget _buildInfoRow(
-    String label,
-    String value, {
-    bool copyable = false,
-    Color? valueColor,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 100,
-            child: Text(
-              label,
-              style: TextStyle(
-                color: CyberTheme.textSecondary(context),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          Expanded(
-            child: GestureDetector(
-              onTap: copyable
-                  ? () {
-                      Clipboard.setData(ClipboardData(text: value));
-                      _showSnackBar('Copied to clipboard');
-                    }
-                  : null,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      value,
-                      style: TextStyle(
-                        color: valueColor ?? CyberTheme.textPrimary(context),
-                        fontFamily: copyable ? 'monospace' : null,
-                        fontSize: copyable ? 12 : 14,
-                      ),
-                    ),
-                  ),
-                  if (copyable)
-                    Icon(
-                      Icons.copy,
-                      size: 16,
-                      color: CyberTheme.textDim(context),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatsGrid() {
+  Widget _buildStakingStatsSection() {
     final isStaked = _stakeInfo?.active ?? false;
-    final hasClaimable = (_claimableReward?.reward ?? 0) > 0;
-
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 12,
-      childAspectRatio: 1.5,
+    return Column(
       children: [
-        _buildStatBox(
-          icon: Icons.bolt,
-          label: 'Staking Status',
-          value: isStaked ? 'Staked' : 'Not Staked',
-          color: isStaked ? Colors.orange : Colors.grey,
+        Row(
+          children: [
+            Expanded(
+              child: StatCard(
+                label: 'STAKED AMOUNT',
+                value: isStaked ? '50,000' : '0',
+                suffix: ' CFLY',
+                icon: Icons.lock,
+                color: isStaked ? CyberColors.neonGreen : Colors.grey,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: StatCard(
+                label: 'CURRENT APY',
+                value: _apy?.toStringAsFixed(1) ?? '0.0',
+                suffix: '%',
+                icon: Icons.trending_up,
+                color: CyberColors.neonCyan,
+              ),
+            ),
+          ],
         ),
-        _buildStatBox(
+        const SizedBox(height: 12),
+        StatCard(
+          label: 'CLAIMABLE REWARDS',
+          value: _claimableReward?.reward.toStringAsFixed(2) ?? '0.00',
+          suffix: ' CFLY',
           icon: Icons.card_giftcard,
-          label: 'Claimable',
-          value:
-              '${_claimableReward?.reward.toStringAsFixed(2) ?? '0.00'} CFLY',
-          color: hasClaimable ? CyberTheme.primary(context) : Colors.grey,
-        ),
-        _buildStatBox(
-          icon: Icons.trending_up,
-          label: 'APY',
-          value: '${_apy?.toStringAsFixed(2) ?? '0.00'}%',
-          color: Colors.green,
-        ),
-        _buildStatBox(
-          icon: Icons.schedule,
-          label: 'Next Claim',
-          value: _getNextClaimStatus(),
-          color: _getNextClaimColor(),
+          color: (_claimableReward?.reward ?? 0) > 0 ? CyberColors.neonMagenta : Colors.grey,
         ),
       ],
     );
   }
 
-  String _getNextClaimStatus() {
-    if (!(_stakeInfo?.active ?? false)) return 'N/A';
-    if ((_claimableReward?.reward ?? 0) > 0) return 'Ready!';
-    if (_remainingTime.inSeconds <= 0) return 'Ready!';
+  Widget _buildCountdownSection() {
+    if (_claimableReward != null && _claimableReward!.reward > 0) return const SizedBox.shrink();
+    if (_remainingTime.inSeconds <= 0) return const SizedBox.shrink();
 
-    // Show short format for stat box
-    final hours = _remainingTime.inHours;
-    final minutes = _remainingTime.inMinutes % 60;
-    if (hours > 0) {
-      return '${hours}h ${minutes}m';
-    }
-    return '${minutes}m ${_remainingTime.inSeconds % 60}s';
-  }
-
-  Color _getNextClaimColor() {
-    if (!(_stakeInfo?.active ?? false)) return Colors.grey;
-    if ((_claimableReward?.reward ?? 0) > 0) return Colors.green;
-    if (_remainingTime.inSeconds <= 0) return Colors.green;
-    return Colors.blue;
-  }
-
-  Widget _buildStatBox({
-    required IconData icon,
-    required String label,
-    required String value,
-    required Color color,
-  }) {
-    final isDark = CyberTheme.isDark(context);
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withOpacity(isDark ? 0.15 : 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              color: CyberTheme.textSecondary(context),
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionsCard(bool canStake, bool isStaked) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: CyberTheme.card(context),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: CyberTheme.primary(context).withOpacity(0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Actions',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: CyberTheme.textPrimary(context),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          if (canStake)
-            _buildActionButton(
-              label: 'Stake 50,000 CFLY',
-              icon: Icons.arrow_upward,
-              color: CyberTheme.success(context),
-              onPressed: _isActionLoading ? null : _handleStake,
-            )
-          else if (isStaked) ...[
-            _buildActionButton(
-              label: 'Unstake',
-              icon: Icons.arrow_downward,
-              color: CyberTheme.error(context),
-              onPressed: _isActionLoading ? null : _handleUnstake,
-            ),
-            const SizedBox(height: 12),
-            if (_claimableReward != null && _claimableReward!.reward > 0)
-              _buildActionButton(
-                label:
-                    'Claim ${_claimableReward!.reward.toStringAsFixed(2)} CFLY',
-                icon: Icons.card_giftcard,
-                color: CyberTheme.primary(context),
-                onPressed: _isActionLoading ? null : _handleClaim,
-              ),
-          ],
-
-          if (_isActionLoading) ...[
-            const SizedBox(height: 16),
-            Center(
-              child: CircularProgressIndicator(
-                color: CyberTheme.primary(context),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Center(
-              child: Text(
-                'Processing transaction...',
-                style: TextStyle(color: CyberTheme.textSecondary(context)),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButton({
-    required String label,
-    required IconData icon,
-    required Color color,
-    VoidCallback? onPressed,
-  }) {
-    final onPrimary = CyberTheme.isDark(context) ? Colors.black : Colors.white;
-
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon),
-        label: Text(label),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: color,
-          foregroundColor: onPrimary,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildConnectWalletCard() {
-    final isDark = CyberTheme.isDark(context);
-
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: isDark
-            ? CyberColors.backgroundCard
-            : CyberColorsLight.backgroundCard,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: CyberTheme.primary(context).withOpacity(0.3)),
-      ),
+    return NeonGlowCard(
+      glowColor: CyberColors.neonGreen,
       child: Column(
         children: [
-          Icon(
-            Icons.account_balance_wallet_outlined,
-            size: 48,
-            color: CyberTheme.textDim(context),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const PulsingIndicator(color: CyberColors.neonGreen, size: 8),
+              const SizedBox(width: 8),
+              Text(
+                'NEXT REWARD CYCLE',
+                style: TextStyle(fontFamily: 'monospace', fontSize: 12, fontWeight: FontWeight.bold, color: CyberColors.neonGreen),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           Text(
-            'Connect Your Wallet',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: CyberTheme.textPrimary(context),
-            ),
+            _formatCountdown(_remainingTime),
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 36, fontWeight: FontWeight.bold, letterSpacing: 4),
           ),
           const SizedBox(height: 8),
           Text(
-            'Connect your wallet to stake and claim rewards',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: CyberTheme.textSecondary(context)),
+            'Distributed every 6 hours',
+            style: TextStyle(fontSize: 11, color: CyberTheme.textDim(context)),
           ),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: () => Navigator.pushNamed(context, '/wallet'),
-            icon: const Icon(Icons.add),
-            label: const Text('Create Wallet'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: CyberTheme.primary(context),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionsSection(WalletService walletService) {
+    if (!walletService.hasWallet) {
+      return NeonGlowCard(
+        glowColor: Colors.grey,
+        child: Column(
+          children: [
+            const Icon(Icons.account_balance_wallet_outlined, size: 40, color: Colors.grey),
+            const SizedBox(height: 16),
+            const Text('Wallet Required', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text('Connect your wallet to participate in staking.', textAlign: TextAlign.center, style: TextStyle(color: CyberTheme.textDim(context))),
+            const SizedBox(height: 20),
+            NeonButton(text: 'Setup Wallet', onPressed: () => Navigator.pushNamed(context, '/wallet')),
+          ],
+        ),
+      );
+    }
+
+    final isStaked = _stakeInfo?.active ?? false;
+    final hasEnough = (_cflyBalance ?? 0) >= _minStakeCfly;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (!isStaked)
+          NeonButton(
+            text: 'STAKE 50,000 CFLY',
+            icon: Icons.lock_outline,
+            color: hasEnough ? CyberColors.neonGreen : Colors.grey,
+            onPressed: hasEnough ? _handleStake : null,
+          )
+        else ...[
+          if (_claimableReward != null && _claimableReward!.reward > 0)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: NeonButton(
+                text: 'CLAIM REWARDS',
+                icon: Icons.card_giftcard,
+                color: CyberColors.neonMagenta,
+                onPressed: _handleClaim,
               ),
             ),
+          NeonButton(
+            text: 'UNSTAKE FUNDS',
+            icon: Icons.lock_open,
+            color: CyberColors.neonRed,
+            onPressed: _handleUnstake,
+            outlined: true,
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildSectionTitle(String title, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: CyberTheme.primary(context)),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: TextStyle(
+            fontFamily: 'monospace',
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+            letterSpacing: 2,
+            color: CyberTheme.textDim(context),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class StatCard extends StatelessWidget {
+  final String label;
+  final String value;
+  final String suffix;
+  final IconData icon;
+  final Color color;
+
+  const StatCard({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.suffix,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return NeonGlowCard(
+      glowColor: color,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 14, color: color),
+              const SizedBox(width: 8),
+              Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: CyberTheme.textDim(context), letterSpacing: 1)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                value,
+                style: TextStyle(fontFamily: 'monospace', fontSize: 24, fontWeight: FontWeight.bold, color: color),
+              ),
+              Text(
+                suffix,
+                style: TextStyle(fontFamily: 'monospace', fontSize: 12, color: color.withOpacity(0.7)),
+              ),
+            ],
           ),
         ],
       ),

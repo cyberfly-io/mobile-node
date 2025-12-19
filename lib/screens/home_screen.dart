@@ -27,7 +27,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   // Balance and staking state
   double? _cflyBalance;
   NodeStakeInfo? _stakeInfo;
+  RewardInfo? _claimableReward;
   bool _isLoadingBalance = false;
+  bool _isClaiming = false;
+  bool _lastNodeRunning = false;  // Track node running state for reload
 
   @override
   void initState() {
@@ -46,6 +49,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Future<void> _loadBalanceAndStaking() async {
     final walletService = context.read<WalletService>();
     final kadenaService = context.read<KadenaService>();
+    final nodeService = context.read<NodeService>();
     
     if (!walletService.hasWallet) return;
     
@@ -54,23 +58,44 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     try {
       final account = walletService.account;
       final publicKey = walletService.publicKey;
+      final peerId = nodeService.nodeInfo?.nodeId;
       
-      // Load balance and stake info in parallel
-      final results = await Future.wait([
+      debugPrint('[HomeScreen] Loading balance/staking. peerId: $peerId, publicKey: $publicKey');
+      
+      // Build list of futures to load in parallel
+      final futures = <Future<dynamic>>[
         kadenaService.getCFLYBalance(account),
-        if (publicKey != null) kadenaService.getNodeStake(publicKey),
-      ]);
+      ];
+      
+      if (publicKey != null) {
+        futures.add(kadenaService.getNodeStake(publicKey));
+      }
+      
+      if (peerId != null) {
+        futures.add(kadenaService.calculateRewards(peerId));
+      }
+      
+      final results = await Future.wait(futures);
       
       if (mounted) {
         setState(() {
           _cflyBalance = results[0] as double?;
-          if (results.length > 1) {
-            _stakeInfo = results[1] as NodeStakeInfo?;
+          int currentIdx = 1;
+          
+          if (publicKey != null) {
+            _stakeInfo = results[currentIdx++] as NodeStakeInfo?;
           }
+          
+          if (peerId != null && currentIdx < results.length) {
+            _claimableReward = results[currentIdx++] as RewardInfo?;
+            debugPrint('[HomeScreen] Claimable reward: ${_claimableReward?.reward}');
+          }
+          
           _isLoadingBalance = false;
         });
       }
     } catch (e) {
+      debugPrint('[HomeScreen] Error loading balance: $e');
       if (mounted) {
         setState(() => _isLoadingBalance = false);
       }
@@ -88,6 +113,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final nodeService = context.watch<NodeService>();
     final walletService = context.watch<WalletService>();
     final isDark = CyberTheme.isDark(context);
+    
+    // Reload balance/rewards when node becomes running
+    if (nodeService.isRunning && !_lastNodeRunning) {
+      _lastNodeRunning = true;
+      // Schedule reload after this build
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _loadBalanceAndStaking();
+      });
+    } else if (!nodeService.isRunning) {
+      _lastNodeRunning = false;
+    }
 
     return Scaffold(
       body: Stack(
@@ -295,14 +331,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Wallet card with staggered animation
-                        AnimatedListItem(
-                          index: 0,
-                          child: _buildWalletCard(context, walletService),
-                        ),
-
-                        const SizedBox(height: 16),
-
                         // Node info card with staggered animation
                         if (nodeService.nodeInfo != null)
                           AnimatedListItem(
@@ -312,6 +340,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                               child: NodeInfoCard(
                                 nodeInfo: nodeService.nodeInfo!,
                                 uptimeSeconds: nodeService.status.uptimeSeconds,
+                                claimableReward: _claimableReward?.reward,
+                                onClaim: () => _handleClaim(context),
+                                isClaiming: _isClaiming,
                               ),
                             ),
                           ),
@@ -340,7 +371,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         // Peers section - always show
                         if (nodeService.isRunning) ...[
                           AnimatedListItem(
-                            index: 4,
+                            index: 5,
                             child: Text(
                               'CONNECTED PEERS',
                               style: TextStyle(
@@ -356,12 +387,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           // Peer summary bar
                           if (nodeService.peers.isNotEmpty)
                             AnimatedListItem(
-                              index: 5,
+                              index: 6,
                               child: _buildPeerSummary(context, nodeService.peers),
                             ),
                           const SizedBox(height: 12),
                           AnimatedListItem(
-                            index: 6,
+                            index: 7,
                             child: nodeService.peers.isEmpty
                                 ? _buildEmptyPeersCard(context)
                                 : PeerList(peers: nodeService.peers),
@@ -371,7 +402,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         // Console logs (collapsible)
                         if (nodeService.isRunning)
                           AnimatedListItem(
-                            index: 7,
+                            index: 8,
                             child: const ConsoleLogWidget(
                               maxHeight: 200,
                               initiallyExpanded: false,
@@ -488,39 +519,57 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           
           const SizedBox(height: 16),
           
-          // CFLY Balance and Staking Status row
+          // CFLY Balance, Staking, and Rewards row
           Row(
             children: [
               // CFLY Balance
               Expanded(
                 child: _buildBalanceItem(
                   context,
-                  label: 'CFLY BALANCE',
+                  label: 'BALANCE',
                   value: _isLoadingBalance 
                       ? '...' 
                       : _cflyBalance != null 
                           ? _formatBalance(_cflyBalance!)
                           : '0.00',
-                  icon: Icons.token,
+                  icon: Icons.account_balance_wallet,
                   color: primaryColor,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               // Staking Status
               Expanded(
                 child: _buildBalanceItem(
                   context,
-                  label: 'STAKING',
+                  label: 'STAKED',
                   value: _isLoadingBalance 
                       ? '...' 
                       : _stakeInfo?.active == true 
-                          ? '${(_stakeInfo!.amount ?? 50000).toStringAsFixed(0)} CFLY'
-                          : 'Not Staked',
+                          ? _formatBalance(_stakeInfo!.amount ?? 50000)
+                          : '0.00',
                   icon: Icons.lock,
                   color: _stakeInfo?.active == true 
                       ? CyberTheme.success(context)
                       : CyberTheme.textDim(context),
                   isActive: _stakeInfo?.active == true,
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Rewards
+              Expanded(
+                child: _buildBalanceItem(
+                  context,
+                  label: 'REWARDS',
+                  value: _isLoadingBalance 
+                      ? '...' 
+                      : _claimableReward != null 
+                          ? _formatBalance(_claimableReward!.reward)
+                          : '0.00',
+                  icon: Icons.card_giftcard,
+                  color: (_claimableReward?.reward ?? 0) > 0 
+                      ? (isDark ? CyberColors.neonCyan : CyberColorsLight.primaryCyan)
+                      : CyberTheme.textDim(context),
+                  isActive: (_claimableReward?.reward ?? 0) > 0,
                 ),
               ),
             ],
@@ -529,7 +578,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           // Action buttons
           const SizedBox(height: 12),
           
-          // Send and Stake buttons
+          // Send, Stake, and Claim buttons
           Row(
             children: [
               // Send/Transfer button
@@ -539,25 +588,40 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   label: 'Send',
                   icon: Icons.send,
                   color: magentaColor,
-                  onPressed: _isLoadingBalance ? null : () => _navigateToSendScreen(context),
+                  onPressed: (_isLoadingBalance || _isClaiming) ? null : () => _navigateToSendScreen(context),
                 ),
               ),
               const SizedBox(width: 8),
-              // Stake button (only if not already staked)
-              if (showStakeButton)
+              
+              // Claim button (if rewards available)
+              if (_claimableReward != null && _claimableReward!.reward > 0)
+                Expanded(
+                  child: _buildActionButton(
+                    context,
+                    label: _isClaiming ? '...' : 'Claim',
+                    icon: Icons.card_giftcard,
+                    color: isDark ? CyberColors.neonCyan : CyberColorsLight.primaryCyan,
+                    onPressed: (_isLoadingBalance || _isClaiming) ? null : () => _handleClaim(context),
+                  ),
+                )
+              else if (showStakeButton)
+                // Stake button (only if not already staked and no rewards to claim)
                 Expanded(
                   child: _buildActionButton(
                     context,
                     label: 'Stake',
                     icon: Icons.lock,
                     color: CyberTheme.success(context),
-                    onPressed: _isLoadingBalance ? null : () => _showStakeDialog(context),
+                    onPressed: (_isLoadingBalance || _isClaiming) ? null : () => _showStakeDialog(context),
                   ),
                 ),
-              if (showStakeButton) const SizedBox(width: 8),
+                
+              if ((_claimableReward != null && _claimableReward!.reward > 0) || showStakeButton) 
+                const SizedBox(width: 8),
+              
               // Refresh button
               IconButton(
-                onPressed: _isLoadingBalance ? null : _loadBalanceAndStaking,
+                onPressed: (_isLoadingBalance || _isClaiming) ? null : _loadBalanceAndStaking,
                 icon: _isLoadingBalance 
                     ? SizedBox(
                         width: 18,
@@ -900,6 +964,95 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             backgroundColor: CyberTheme.error(context),
           ),
         );
+      }
+    }
+  }
+
+  Future<void> _handleClaim(BuildContext context) async {
+    if (_claimableReward == null || _claimableReward!.reward <= 0) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: CyberTheme.card(context),
+        title: Text(
+          'Claim Rewards',
+          style: TextStyle(color: CyberTheme.textPrimary(context)),
+        ),
+        content: Text(
+          'Do you want to claim ${_claimableReward!.reward.toStringAsFixed(2)} CFLY tokens?',
+          style: TextStyle(color: CyberTheme.textSecondary(context)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Cancel', style: TextStyle(color: CyberTheme.textDim(context))),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: CyberTheme.isDark(context) ? CyberColors.neonCyan : CyberColorsLight.primaryCyan,
+            ),
+            child: const Text('Claim'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      // Verify PIN/biometric before claiming
+      final authService = context.read<AuthService>();
+      final authenticated = await authenticateUser(
+        context,
+        authService: authService,
+        reason: 'Authenticate to claim rewards',
+      );
+      if (!authenticated || !mounted) return;
+
+      await _performClaim();
+    }
+  }
+
+  Future<void> _performClaim() async {
+    final nodeService = context.read<NodeService>();
+    final kadenaService = context.read<KadenaService>();
+    final peerId = nodeService.nodeInfo?.nodeId;
+    
+    if (peerId == null) return;
+
+    setState(() => _isClaiming = true);
+
+    try {
+      final success = await kadenaService.claimReward(peerId);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              success 
+                  ? 'Claim transaction submitted!' 
+                  : 'Claim failed: ${kadenaService.error}',
+              style: TextStyle(color: CyberTheme.textPrimary(context)),
+            ),
+            backgroundColor: success ? CyberTheme.success(context) : CyberTheme.error(context),
+          ),
+        );
+        
+        // Reload balance and rewards
+        await _loadBalanceAndStaking();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: CyberTheme.error(context),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isClaiming = false);
       }
     }
   }

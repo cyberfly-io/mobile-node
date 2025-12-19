@@ -49,9 +49,16 @@ const SYNC_TOPIC: &[u8; 32] = b"decentralized-db-sync-v1-iroh!!!";
 const PEER_DISCOVERY_TOPIC: &[u8; 32] = b"decentralized-peer-list-v1-iroh!";
 /// Improved discovery topic (postcard + ed25519) - matches cyberfly-rust-node v2
 const IMPROVED_DISCOVERY_TOPIC: &[u8; 32] = b"cyberfly-discovery-v2-postcard!!";
+/// Fetch latency request topic - matches cyberfly-rust-node
+const LATENCY_TOPIC: &[u8; 32] = b"cyberfly-fetch-latency-request!!";
 
 /// Node version
 const NODE_VERSION: &str = "cyberfly-mobile-0.1.0";
+
+/// Whitelisted public keys for latency requests (matching cyberfly-rust-node)
+const WHITELISTED_KEYS: &[&str] = &[
+    "f53f94261cd3c60832c347fda7b92c6c8b7249baab8196a5bfc3915418c43e72"
+];
 
 /// Gossip message types (for data topic)
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -80,6 +87,78 @@ pub enum GossipMessage {
         responded_at: i64,
         signature: String,
     },
+}
+
+/// Signed request format for fetch-latency-request (matches cyberfly-rust-node)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SignedLatencyRequest {
+    pub data: LatencyRequestData,
+    pub sig: String,
+    pub pubkey: String,
+}
+
+/// Latency request data (inner payload of SignedLatencyRequest)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LatencyRequestData {
+    pub request_id: String,
+    pub url: String,
+    pub method: Option<String>,
+    #[serde(default)]
+    pub headers: std::collections::HashMap<String, String>,
+    pub body: Option<String>,
+}
+
+/// Latency response format for fetch-latency-request (matches cyberfly-rust-node)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FetchLatencyResponse {
+    pub request_id: String,
+    pub status: u16,
+    #[serde(rename = "statusText")]
+    pub status_text: String,
+    pub latency: f64,
+    #[serde(rename = "nodeRegion")]
+    pub node_region: Option<String>,
+    #[serde(rename = "nodeId")]
+    pub node_id: String,
+    pub error: Option<String>,
+}
+
+/// Wrapper message for latency responses (matches cyberfly-rust-node GossipMessage format)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LatencyGossipMessage {
+    #[serde(rename = "__origin")]
+    pub origin: String,
+    #[serde(rename = "__broker")]
+    pub broker: String,
+    #[serde(rename = "__timestamp")]
+    pub timestamp: i64,
+    pub message_id: String,
+    pub topic: Option<String>,
+    #[serde(with = "base64_bytes")]
+    pub payload: Vec<u8>,
+}
+
+/// Base64 serialization helper for payload bytes
+mod base64_bytes {
+    use serde::{Deserialize, Deserializer, Serializer};
+    use base64::{Engine as _, engine::general_purpose};
+
+    pub fn serialize<S>(bytes: &[u8], serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&general_purpose::STANDARD.encode(bytes))
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        general_purpose::STANDARD
+            .decode(s)
+            .map_err(serde::de::Error::custom)
+    }
 }
 
 /// Node status
@@ -247,11 +326,19 @@ impl CyberflyNode {
         info!("Node ID: {}", node_id_str);
         log_info!("Node ID: {}", node_id_str);
         
-        // Wait for endpoint to be online (have relay connection)
-        // This is important for NAT traversal
-        log_info!(">>> Waiting for endpoint to be online (relay connection)...");
-        endpoint.online().await;
-        log_info!(">>> Endpoint is online!");
+        // Try to wait for endpoint to be online with a short timeout
+        // Don't block startup on relay connection - it can happen in background
+        log_info!(">>> Checking for relay connection (non-blocking, 2s timeout)...");
+        let online_result = tokio::time::timeout(
+            Duration::from_secs(2),
+            endpoint.online()
+        ).await;
+        
+        if online_result.is_ok() {
+            log_info!(">>> Endpoint is online with relay!");
+        } else {
+            log_info!(">>> Relay not ready yet, continuing startup (will connect in background)");
+        }
         
         // Log endpoint addresses
         let my_addr = endpoint.addr();
@@ -271,125 +358,59 @@ impl CyberflyNode {
             .accept(iroh_gossip::ALPN, gossip.clone())
             .spawn();
 
-        // Parse bootstrap peers and connect to them with retry logic
+        // Parse bootstrap peers - we'll connect in background
         let mut bootstrap_node_ids: Vec<EndpointId> = Vec::new();
-        let mut all_bootstrap_strings: Vec<String> = vec![DEFAULT_BOOTSTRAP.to_string()];
-        all_bootstrap_strings.extend(bootstrap_peers.iter().cloned());
+        let all_bootstrap_strings: Vec<String> = {
+            let mut v = vec![DEFAULT_BOOTSTRAP.to_string()];
+            v.extend(bootstrap_peers.iter().cloned());
+            v
+        };
         
-        // Connect to each bootstrap peer before subscribing to gossip
+        // Parse peer IDs first (fast, no network)
         for peer_str in &all_bootstrap_strings {
-            if let Some((node_id_str, addr_str)) = peer_str.split_once('@') {
+            if let Some((node_id_str, _)) = peer_str.split_once('@') {
                 if let Ok(peer_node_id) = node_id_str.parse::<EndpointId>() {
-                    // Skip our own ID
-                    if peer_node_id == node_id {
-                        continue;
+                    if peer_node_id != node_id {
+                        bootstrap_node_ids.push(peer_node_id);
                     }
-                    
-                    bootstrap_node_ids.push(peer_node_id);
-                    
-                    // Parse socket address and connect with retry
-                    if let Ok(socket_addr) = addr_str.parse::<std::net::SocketAddr>() {
-                        info!("Connecting to bootstrap peer {} at {}", peer_node_id.fmt_short(), socket_addr);
-                        log_info!(">>> Connecting to bootstrap peer {} at {}", peer_node_id.fmt_short(), socket_addr);
-                        
-                        // Retry connection with exponential backoff
-                        const MAX_RETRIES: u32 = 5;
-                        const INITIAL_DELAY_MS: u64 = 1000;
-                        const MAX_DELAY_MS: u64 = 30000;
-                        
-                        let mut connected = false;
-                        let mut delay_ms = INITIAL_DELAY_MS;
-                        
-                        for attempt in 1..=MAX_RETRIES {
-                            log_info!(">>> Bootstrap connect attempt {}/{} to {}", attempt, MAX_RETRIES, peer_node_id.fmt_short());
-                            
-                            // First try direct IP connection
+                }
+            }
+        }
+        
+        // Spawn bootstrap connections in background (non-blocking)
+        let endpoint_clone = endpoint.clone();
+        let bootstrap_strings = all_bootstrap_strings.clone();
+        tokio::spawn(async move {
+            log_info!(">>> Starting background bootstrap connections...");
+            for peer_str in &bootstrap_strings {
+                if let Some((node_id_str, addr_str)) = peer_str.split_once('@') {
+                    if let Ok(peer_node_id) = node_id_str.parse::<EndpointId>() {
+                        if let Ok(socket_addr) = addr_str.parse::<std::net::SocketAddr>() {
+                            // Single attempt with short timeout (background, don't retry heavily)
                             let endpoint_addr = iroh::EndpointAddr::from_parts(
                                 peer_node_id,
                                 vec![iroh::TransportAddr::Ip(socket_addr)],
                             );
                             
-                            // Try direct connection with timeout
                             let connect_result = tokio::time::timeout(
-                                Duration::from_secs(10),
-                                endpoint.connect(endpoint_addr.clone(), iroh_gossip::ALPN)
+                                Duration::from_secs(5),
+                                endpoint_clone.connect(endpoint_addr, iroh_gossip::ALPN)
                             ).await;
                             
                             match connect_result {
-                                Ok(Ok(conn)) => {
-                                    info!("✓ Connected to bootstrap peer {} via direct IP", peer_node_id.fmt_short());
-                                    log_info!("✓ BOOTSTRAP_CONNECTED (direct): {} (remote_id: {:?})", 
-                                        peer_node_id.fmt_short(), 
-                                        conn.remote_id());
-                                    connected = true;
-                                    break;
+                                Ok(Ok(_)) => {
+                                    log_info!("✓ Background connected to bootstrap: {}", peer_node_id.fmt_short());
                                 }
-                                Ok(Err(e)) => {
-                                    log_warn!(">>> Direct connect attempt {} failed: {}", attempt, e);
-                                    
-                                    // After first failure, try via relay
-                                    if attempt >= 1 {
-                                        if let Some(relay_url) = endpoint.addr().relay_urls().next() {
-                                            log_info!(">>> Trying relay-assisted connection via {}", relay_url);
-                                            
-                                            // Add relay to the endpoint address
-                                            let relay_addr = iroh::EndpointAddr::from_parts(
-                                                peer_node_id,
-                                                vec![
-                                                    iroh::TransportAddr::Ip(socket_addr),
-                                                    iroh::TransportAddr::Relay(relay_url.clone()),
-                                                ],
-                                            );
-                                            
-                                            let relay_connect_result = tokio::time::timeout(
-                                                Duration::from_secs(15),
-                                                endpoint.connect(relay_addr, iroh_gossip::ALPN)
-                                            ).await;
-                                            
-                                            match relay_connect_result {
-                                                Ok(Ok(conn)) => {
-                                                    info!("✓ Connected to bootstrap peer {} via relay", peer_node_id.fmt_short());
-                                                    log_info!("✓ BOOTSTRAP_CONNECTED (relay): {} (remote_id: {:?})", 
-                                                        peer_node_id.fmt_short(), 
-                                                        conn.remote_id());
-                                                    connected = true;
-                                                    break;
-                                                }
-                                                Ok(Err(relay_e)) => {
-                                                    log_warn!(">>> Relay connect attempt {} failed: {}", attempt, relay_e);
-                                                }
-                                                Err(_) => {
-                                                    log_warn!(">>> Relay connect attempt {} timed out", attempt);
-                                                }
-                                            }
-                                        } else {
-                                            log_warn!(">>> No relay URL available for fallback");
-                                        }
-                                    }
-                                }
-                                Err(_) => {
-                                    log_warn!(">>> Direct connect attempt {} timed out", attempt);
+                                _ => {
+                                    log_warn!(">>> Background bootstrap connect failed: {}", peer_node_id.fmt_short());
                                 }
                             }
-                            
-                            // Wait before retry with exponential backoff
-                            if attempt < MAX_RETRIES {
-                                log_info!(">>> Waiting {}ms before retry...", delay_ms);
-                                tokio::time::sleep(Duration::from_millis(delay_ms)).await;
-                                delay_ms = (delay_ms * 2).min(MAX_DELAY_MS);
-                            }
                         }
-                        
-                        if !connected {
-                            log_warn!(">>> Failed to connect to bootstrap peer {} after {} attempts", 
-                                peer_node_id.fmt_short(), MAX_RETRIES);
-                        }
-                    } else {
-                        log::warn!("BOOTSTRAP_PARSE_FAILED: could not parse address '{}'", addr_str);
                     }
                 }
             }
-        }
+            log_info!(">>> Background bootstrap connections complete");
+        });
 
         // Clone for the task
         let node_id_clone = node_id_str.clone();
@@ -518,7 +539,8 @@ impl CyberflyNode {
         let sync_topic_id = TopicId::from_bytes(*SYNC_TOPIC);
         let peer_discovery_topic_id = TopicId::from_bytes(*PEER_DISCOVERY_TOPIC);
         let improved_discovery_topic_id = TopicId::from_bytes(*IMPROVED_DISCOVERY_TOPIC);
-        log_info!(">>> Topic IDs created successfully (including v2 improved discovery)");
+        let latency_topic_id = TopicId::from_bytes(*LATENCY_TOPIC);
+        log_info!(">>> Topic IDs created successfully (including v2 improved discovery and latency)");
 
         // Gossip senders for each topic
         log_info!(">>> Creating gossip senders");
@@ -527,7 +549,8 @@ impl CyberflyNode {
         let sync_sender: Arc<Mutex<Option<GossipSender>>> = Arc::new(Mutex::new(None));
         let peer_discovery_sender: Arc<Mutex<Option<GossipSender>>> = Arc::new(Mutex::new(None));
         let improved_discovery_sender: Arc<Mutex<Option<GossipSender>>> = Arc::new(Mutex::new(None));
-        log_info!(">>> Gossip senders created");
+        let latency_sender: Arc<Mutex<Option<GossipSender>>> = Arc::new(Mutex::new(None));
+        log_info!(">>> Gossip senders created (including latency sender)");
 
         let peer_ids_str: Vec<String> = bootstrap_peers.iter().map(|p| p.fmt_short().to_string()).collect();
         log_info!("About to subscribe to data topic with {} bootstrap peers: {:?}", 
@@ -1177,6 +1200,59 @@ impl CyberflyNode {
             });
         }
 
+        // Subscribe to fetch-latency-request topic - matches cyberfly-rust-node
+        // This allows mobile nodes to participate in HTTP latency monitoring
+        log_info!(">>> Subscribing to fetch-latency-request topic...");
+        if let Ok(topic_handle) = gossip.subscribe(latency_topic_id, bootstrap_peers.clone()).await {
+            let (sender, mut receiver) = topic_handle.split();
+            *latency_sender.lock().await = Some(sender);
+            log_info!("✓ Subscribed to fetch-latency-request topic");
+            
+            let latency_sender_clone = latency_sender.clone();
+            let node_id_clone = node_id.clone();
+            let region_clone = region.clone();
+
+            tokio::spawn(async move {
+                log_info!("⏱️ LATENCY_TOPIC LISTENER TASK STARTED");
+                while let Some(event) = receiver.next().await {
+                    match event {
+                        Ok(GossipEvent::Received(msg)) => {
+                            let from = msg.delivered_from;
+                            log_info!("⏱️ Received fetch-latency-request from {} ({} bytes)", 
+                                from.fmt_short(), msg.content.len());
+                            
+                            // Handle the latency request in a separate task
+                            let data = msg.content.to_vec();
+                            let sender = latency_sender_clone.clone();
+                            let node_id = node_id_clone.clone();
+                            let region = region_clone.clone();
+                            
+                            tokio::spawn(async move {
+                                if let Err(e) = handle_fetch_latency_request(data, sender, node_id, region).await {
+                                    log_error!("Failed to handle fetch latency request: {}", e);
+                                }
+                            });
+                        }
+                        Ok(GossipEvent::NeighborUp(peer_id)) => {
+                            log_info!("⏱️ Latency topic NeighborUp: {}", peer_id.fmt_short());
+                        }
+                        Ok(GossipEvent::NeighborDown(peer_id)) => {
+                            log_info!("⏱️ Latency topic NeighborDown: {}", peer_id.fmt_short());
+                        }
+                        Ok(GossipEvent::Lagged) => {
+                            log_warn!("Latency topic gossip lagged");
+                        }
+                        Err(e) => {
+                            log_error!("Latency topic gossip error: {}", e);
+                        }
+                    }
+                }
+                log_info!("⏱️ Latency topic listener ended");
+            });
+        } else {
+            log_error!("Failed to subscribe to fetch-latency-request topic");
+        }
+
         // Periodic announcement task
         let discovery_sender_announce = discovery_sender.clone();
         let peer_discovery_sender_announce = peer_discovery_sender.clone();
@@ -1718,3 +1794,202 @@ impl CyberflyNode {
         self.storage.delete(db_name, key)
     }
 }
+
+/// Handle fetch-latency-request (matches cyberfly-rust-node implementation)
+/// Verifies signature, executes HTTP request, measures latency, and publishes response
+async fn handle_fetch_latency_request(
+    data: Vec<u8>,
+    latency_sender: Arc<Mutex<Option<GossipSender>>>,
+    node_id: String,
+    region: Option<String>,
+) -> Result<()> {
+    use std::time::Instant;
+    
+    // Parse the signed request
+    let signed_request: SignedLatencyRequest = match serde_json::from_slice(&data) {
+        Ok(req) => req,
+        Err(e) => {
+            log_error!("Failed to parse latency request: {}", e);
+            return Err(anyhow!("Invalid request format: {}", e));
+        }
+    };
+    
+    let request_id = signed_request.data.request_id.clone();
+    
+    // Verify public key is whitelisted
+    if !WHITELISTED_KEYS.contains(&signed_request.pubkey.as_str()) {
+        log_warn!("⚠️ Public key not whitelisted: {}", signed_request.pubkey);
+        
+        let response = FetchLatencyResponse {
+            request_id,
+            status: 403,
+            status_text: "Forbidden".to_string(),
+            latency: 0.0,
+            node_region: region.clone(),
+            node_id: node_id.clone(),
+            error: Some("Public key not whitelisted".to_string()),
+        };
+        
+        publish_latency_response(response, latency_sender, node_id).await?;
+        return Ok(());
+    }
+    
+    // Verify signature
+    let public_key_bytes = match hex::decode(&signed_request.pubkey) {
+        Ok(bytes) => bytes,
+        Err(e) => {
+            log_error!("Failed to decode public key: {}", e);
+            let response = FetchLatencyResponse {
+                request_id,
+                status: 403,
+                status_text: "Forbidden".to_string(),
+                latency: 0.0,
+                node_region: region.clone(),
+                node_id: node_id.clone(),
+                error: Some("Invalid public key format".to_string()),
+            };
+            publish_latency_response(response, latency_sender, node_id).await?;
+            return Ok(());
+        }
+    };
+    
+    let signature_bytes = match hex::decode(&signed_request.sig) {
+        Ok(bytes) => bytes,
+        Err(e) => {
+            log_error!("Failed to decode signature: {}", e);
+            let response = FetchLatencyResponse {
+                request_id,
+                status: 403,
+                status_text: "Forbidden".to_string(),
+                latency: 0.0,
+                node_region: region.clone(),
+                node_id: node_id.clone(),
+                error: Some("Invalid signature format".to_string()),
+            };
+            publish_latency_response(response, latency_sender, node_id).await?;
+            return Ok(());
+        }
+    };
+    
+    // Serialize the data for verification (must match how it was signed)
+    let message = serde_json::to_vec(&signed_request.data)?;
+    
+    // Verify signature using crypto module
+    if let Err(e) = crate::crypto::verify_signature_bytes(&public_key_bytes, &message, &signature_bytes) {
+        log_error!("❌ Signature verification failed: {}", e);
+        let response = FetchLatencyResponse {
+            request_id,
+            status: 403,
+            status_text: "Forbidden".to_string(),
+            latency: 0.0,
+            node_region: region.clone(),
+            node_id: node_id.clone(),
+            error: Some("Invalid signature".to_string()),
+        };
+        publish_latency_response(response, latency_sender, node_id).await?;
+        return Ok(());
+    }
+    
+    log_info!("✅ Signature verified for request {}", request_id);
+    log_info!("⏱️ Processing latency request {} for URL: {}", request_id, signed_request.data.url);
+    
+    // Build HTTP client request
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()?;
+    
+    let method_str = signed_request.data.method.as_deref().unwrap_or("GET").to_uppercase();
+    let method = match method_str.as_str() {
+        "GET" => reqwest::Method::GET,
+        "POST" => reqwest::Method::POST,
+        "PUT" => reqwest::Method::PUT,
+        "PATCH" => reqwest::Method::PATCH,
+        "DELETE" => reqwest::Method::DELETE,
+        _ => reqwest::Method::GET,
+    };
+    
+    let mut req_builder = client.request(method, &signed_request.data.url);
+    
+    // Add headers
+    for (key, value) in &signed_request.data.headers {
+        req_builder = req_builder.header(key, value);
+    }
+    
+    // Add body if present
+    if let Some(body) = &signed_request.data.body {
+        req_builder = req_builder.body(body.clone());
+    }
+    
+    // Measure latency
+    let start_time = Instant::now();
+    let result = req_builder.send().await;
+    let latency_ms = start_time.elapsed().as_secs_f64() * 1000.0;
+    
+    let response = match result {
+        Ok(resp) => {
+            let status = resp.status().as_u16();
+            let status_text = resp.status().canonical_reason().unwrap_or("Unknown").to_string();
+            
+            // Consume response body to complete the request
+            let _ = resp.text().await;
+            
+            log_info!("✅ Latency request {} completed: {:.2} ms (status: {})", 
+                request_id, latency_ms, status);
+            
+            FetchLatencyResponse {
+                request_id: request_id.clone(),
+                status,
+                status_text,
+                latency: latency_ms,
+                node_region: region.clone(),
+                node_id: node_id.clone(),
+                error: None,
+            }
+        }
+        Err(e) => {
+            log_error!("❌ Latency request {} failed: {}", request_id, e);
+            
+            FetchLatencyResponse {
+                request_id: request_id.clone(),
+                status: 0,
+                status_text: "Error".to_string(),
+                latency: latency_ms,
+                node_region: region.clone(),
+                node_id: node_id.clone(),
+                error: Some(e.to_string()),
+            }
+        }
+    };
+    
+    publish_latency_response(response, latency_sender, node_id).await?;
+    Ok(())
+}
+
+/// Publish latency response to the latency topic wrapped in GossipMessage format
+async fn publish_latency_response(
+    response: FetchLatencyResponse,
+    latency_sender: Arc<Mutex<Option<GossipSender>>>,
+    node_id: String,
+) -> Result<()> {
+    // Wrap response in GossipMessage format matching cyberfly-rust-node
+    let response_msg = LatencyGossipMessage {
+        origin: "local".to_string(),
+        broker: node_id.clone(),
+        timestamp: chrono::Utc::now().timestamp(),
+        message_id: uuid::Uuid::new_v4().to_string(),
+        topic: Some("api-latency".to_string()),
+        payload: serde_json::to_vec(&response)?,
+    };
+    
+    let payload = serde_json::to_vec(&response_msg)?;
+    
+    if let Some(sender) = latency_sender.lock().await.as_ref() {
+        sender.broadcast(Bytes::from(payload)).await?;
+        log_info!("📤 Published api-latency response to latency topic");
+    } else {
+        log_warn!("Latency sender not available, cannot publish response");
+    }
+    
+    Ok(())
+}
+

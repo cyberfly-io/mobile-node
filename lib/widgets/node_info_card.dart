@@ -7,8 +7,18 @@ import '../theme/theme.dart';
 class NodeInfoCard extends StatefulWidget {
   final NodeInfo nodeInfo;
   final int uptimeSeconds;
+  final double? claimableReward;
+  final VoidCallback? onClaim;
+  final bool isClaiming;
 
-  const NodeInfoCard({super.key, required this.nodeInfo, this.uptimeSeconds = 0});
+  const NodeInfoCard({
+    super.key,
+    required this.nodeInfo,
+    this.uptimeSeconds = 0,
+    this.claimableReward,
+    this.onClaim,
+    this.isClaiming = false,
+  });
 
   @override
   State<NodeInfoCard> createState() => _NodeInfoCardState();
@@ -135,6 +145,7 @@ class _NodeInfoCardState extends State<NodeInfoCard>
             fullValue: widget.nodeInfo.nodeId,
             icon: Icons.fingerprint,
             color: const Color(0xFF00D9FF),
+            copyable: false,
           ),
 
           const SizedBox(height: 12),
@@ -160,6 +171,16 @@ class _NodeInfoCardState extends State<NodeInfoCard>
             color: const Color(0xFF00FF88),
             copyable: false,
           ),
+
+          // Claimable Rewards - show when data is available
+          if (widget.claimableReward != null) ...[
+            const SizedBox(height: 12),
+            _RewardsRow(
+              claimableReward: widget.claimableReward!,
+              onClaim: widget.claimableReward! > 0 ? widget.onClaim : null,
+              isClaiming: widget.isClaiming,
+            ),
+          ],
         ],
       ),
     );
@@ -271,6 +292,122 @@ class _InfoRow extends StatelessWidget {
                 child: Icon(Icons.copy, color: color, size: 14),
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RewardsRow extends StatelessWidget {
+  final double claimableReward;
+  final VoidCallback? onClaim;
+  final bool isClaiming;
+
+  const _RewardsRow({
+    required this.claimableReward,
+    this.onClaim,
+    this.isClaiming = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDarkMode ? Colors.white : CyberColorsLight.textPrimary;
+    final secondaryTextColor = isDarkMode 
+        ? Colors.white.withOpacity(0.5) 
+        : CyberColorsLight.textSecondary;
+    final rewardColor = const Color(0xFFFF6B6B);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            rewardColor.withOpacity(0.15),
+            rewardColor.withOpacity(0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: rewardColor.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.card_giftcard, color: rewardColor, size: 18),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'CLAIMABLE REWARDS',
+                  style: TextStyle(
+                    color: secondaryTextColor,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${claimableReward.toStringAsFixed(4)} CFLY',
+                  style: TextStyle(
+                    color: textColor.withOpacity(0.9),
+                    fontSize: 14,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Claim button
+          GestureDetector(
+            onTap: (isClaiming || onClaim == null) ? null : onClaim,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                gradient: (isClaiming || onClaim == null)
+                    ? null
+                    : LinearGradient(
+                        colors: [rewardColor, rewardColor.withOpacity(0.8)],
+                      ),
+                color: (isClaiming || onClaim == null) ? rewardColor.withOpacity(0.2) : null,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: (isClaiming || onClaim == null)
+                    ? null
+                    : [
+                        BoxShadow(
+                          color: rewardColor.withOpacity(0.4),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+              ),
+              child: isClaiming
+                  ? SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(rewardColor),
+                      ),
+                    )
+                  : Text(
+                      'CLAIM',
+                      style: TextStyle(
+                        color: onClaim == null 
+                            ? rewardColor.withOpacity(0.4) 
+                            : Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
+                      ),
+                    ),
+            ),
+          ),
         ],
       ),
     );

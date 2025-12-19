@@ -34,12 +34,14 @@ class BackgroundService {
     // because it's tied to a foreground service (isForegroundMode: true).
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
       notificationChannelId,
-      'Cyberfly Node Service',
-      description: 'Shows P2P node status and connection information',
+      'Cyberfly Node Running',
+      description: 'Syncing decentralized data with the Cyberfly network',
       importance: Importance.low,
       showBadge: false, // Disable badge for ongoing service
       enableLights: true,
       ledColor: Color(0xFF00D9FF),
+      playSound: false, // Silent notification
+      enableVibration: false, // No vibration
     );
 
     await flutterLocalNotificationsPlugin
@@ -51,12 +53,12 @@ class BackgroundService {
     await _service.configure(
       androidConfiguration: AndroidConfiguration(
         onStart: onStart,
-        autoStart: true,
-        autoStartOnBoot: true,
+        autoStart: false, // Don't auto-start, we start manually when needed
+        autoStartOnBoot: true, // Still allow boot start for subsequent launches
         isForegroundMode: true,
         notificationChannelId: notificationChannelId,
-        initialNotificationTitle: 'Cyberfly Node',
-        initialNotificationContent: 'Initializing...',
+        initialNotificationTitle: 'Cyberfly Node Running',
+        initialNotificationContent: 'Starting up...',
         foregroundServiceNotificationId: notificationId,
         foregroundServiceTypes: [AndroidForegroundType.dataSync],
       ),
@@ -105,21 +107,78 @@ Future<bool> onIosBackground(ServiceInstance service) async {
   return true;
 }
 
+// Notification action handler
+@pragma('vm:entry-point')
+void onNotificationResponse(NotificationResponse details) async {
+  if (details.actionId == 'stop_service') {
+    final service = FlutterBackgroundService();
+    service.invoke('stop');
+  }
+}
+
 // Main background service entry point
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
   DartPluginRegistrant.ensureInitialized();
 
-  // IMPORTANT: Set as foreground service immediately to prevent notification dismissal
+  // IMPORTANT: Set as foreground service immediately
   if (service is AndroidServiceInstance) {
     await service.setAsForegroundService();
   }
 
+  // Initialize flutter_local_notifications for action handling
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
+
+  const AndroidInitializationSettings initializationSettingsAndroid =
+      AndroidInitializationSettings('@mipmap/ic_launcher');
+
+  const InitializationSettings initializationSettings = InitializationSettings(
+    android: initializationSettingsAndroid,
+  );
+
+  await flutterLocalNotificationsPlugin.initialize(
+    initializationSettings,
+    onDidReceiveNotificationResponse: onNotificationResponse,
+    onDidReceiveBackgroundNotificationResponse: onNotificationResponse,
+  );
+
+  // IMMEDIATELY show our persistent notification
+  // This overwrites the default dismissible one from flutter_background_service
+  if (service is AndroidServiceInstance) {
+    // Initial call to set up the method channel structure
+    // We call the method directly because updateNotification is defined inside onStart scope 
+    // but we can't easily call it before it's defined. 
+    // Wait, updateNotification is a local function definition? 
+    // No, it's defined below. We can hoisting call it or move definition up?
+    // Dart functions are hoisted? No.
+    // Let's just create a separate minimal show call here for speed.
+    
+    // Actually, let's just use the function defined below, Dart supports calling closure/local functions 
+    // if they are in scope. But wait, updateNotification is defined inside onStart?
+    // Yes, the file structure shows onStart is a top level function, and updateNotification is defined INSIDE it 
+    // (Wait, no, looking at indentation, updateNotification seems to be inside onStart? 
+    // Let me check the file structure carefully).
+    
+    // Checking file structure from previous reads:
+    // void onStart(ServiceInstance service) async { ... }
+    // Inside onStart, there are helper functions defined? 
+    // Line 138:   void updateNotification(String content) { ... }
+    // Yes, it's a local function.
+    
+    // So we can just call it after definition or move definition up.
+    // Since we are editing the file, let's ensure we call it AFTER definition or move it.
+    // I will add the call at the end of onStart, or after the function definition.
+  }
+  
   // Initialize Rust library in background isolate
   await RustLib.init();
   rust_api.initLogging();
 
+  // Define vars...
   String nodeId = '';
+  // ...
+
   bool isNodeRunning = false;
   int connectedPeers = 0;
   int uptimeSeconds = 0;
@@ -133,26 +192,66 @@ void onStart(ServiceInstance service) async {
     return '${hours}h ${mins}m';
   }
 
-  // Update foreground service notification (cannot be swiped away)
-  void updateNotification(String content) {
+  // Update foreground service notification
+  void updateNotification(String content) async {
     if (service is AndroidServiceInstance) {
-      service.setForegroundNotificationInfo(
-        title: 'Cyberfly Node',
-        content: content,
+      // We ONLY use flutter_local_notifications to manage the notification.
+      // We do NOT call service.setForegroundNotificationInfo because that might
+      // reset the notification to a dismissible state without our custom flags.
+      
+      final FlutterLocalNotificationsPlugin notifications = FlutterLocalNotificationsPlugin();
+
+      // Define the "Stop" action
+      // Note: We use a distinctive icon for the action if possible, otherwise none
+      const AndroidNotificationAction stopAction = AndroidNotificationAction(
+        'stop_service', 
+        'Stop Node',
+        showsUserInterface: false, // Don't open app, just handle bg action
+        cancelNotification: false, // Don't auto cancel, we'll handle it
       );
+
+      final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+        notificationChannelId,
+        'Cyberfly Node Running',
+        channelDescription: 'Syncing decentralized data with the Cyberfly network',
+        importance: Importance.low,
+        priority: Priority.low,
+        ongoing: true, // DISABLE SWIPE TO CLOSE
+        autoCancel: false,
+        showWhen: false,
+        playSound: false,
+        enableVibration: false,
+        icon: '@mipmap/ic_launcher',
+        actions: [stopAction],
+      );
+
+      final NotificationDetails notificationDetails = NotificationDetails(
+        android: androidDetails,
+      );
+
+      await notifications.show(
+          notificationId,
+          'Cyberfly Node Running',
+          content,
+          notificationDetails,
+        );
+        // Ensure the notification is set as the foreground service notification to prevent swipe dismissal
+        await service.setForegroundNotificationInfo(
+          title: 'Cyberfly Node Running',
+          content: content,
+        );
     }
   }
 
   // Update notification with current status
   void updateStatusNotification() {
     if (isNodeRunning) {
-      final shortId = nodeId.isNotEmpty ? nodeId.substring(0, 8) : '...';
-      final uptime = formatUptime(uptimeSeconds);
+      final peerText = connectedPeers == 1 ? 'peer' : 'peers';
       updateNotification(
-        '🟢 Running | Peers: $connectedPeers | Uptime: $uptime | $shortId',
+        'Syncing form decentralized data • $connectedPeers $peerText connected',
       );
     } else {
-      updateNotification('🔴 Node stopped');
+      updateNotification('Node stopped • Tap to restart');
     }
   }
 
@@ -175,7 +274,7 @@ void onStart(ServiceInstance service) async {
       nodeId = info.nodeId;
       isNodeRunning = true;
       uptimeSeconds = 0;
-      updateNotification('🟢 Node started: ${nodeId.substring(0, 8)}...');
+      updateNotification('Syncing decentralized data • 0 peers connected');
       service.invoke('update', {
         'type': 'node_started',
         'success': true,
@@ -195,6 +294,14 @@ void onStart(ServiceInstance service) async {
   Future<void> autoStartOnBoot() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      
+      // Check if user has started node before (first-time users go through NodeStartScreen)
+      final hasStartedBefore = prefs.getBool('hasStartedNodeBefore') ?? false;
+      if (!hasStartedBefore) {
+        updateNotification('⏳ Waiting for first start...');
+        return;
+      }
+      
       final autoStart = prefs.getBool('autoStart') ?? true;
       final runInBackground = prefs.getBool('runInBackground') ?? true;
 
@@ -260,6 +367,15 @@ void onStart(ServiceInstance service) async {
       service.invoke('update', {'type': 'node_stopped', 'success': true});
     } catch (e) {
       service.invoke('update', {'type': 'error', 'message': e.toString()});
+    }
+  });
+
+  service.on('update_notification').listen((event) async {
+    if (event == null) return;
+    final title = event['title'] as String?;
+    final content = event['content'] as String?;
+    if (content != null) {
+      updateNotification(content);
     }
   });
 

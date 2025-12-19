@@ -95,7 +95,9 @@ android {
             enableSplit = true
         }
         abi {
-            enableSplit = true
+            // IMPORTANT: Disabled to ensure Rust native libraries are included
+            // Play Store was not delivering the native libs in split APKs
+            enableSplit = false
         }
     }
 }
