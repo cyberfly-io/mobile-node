@@ -17,7 +17,6 @@ class PeerInfo {
   final String? version;
   final bool isConnected;
   final int? latencyMs;
-  final bool isMobile;
 
   PeerInfo({
     required this.nodeId,
@@ -28,7 +27,7 @@ class PeerInfo {
     this.version,
     this.isConnected = false,
     this.latencyMs,
-    this.isMobile = false,
+    
   });
 
   factory PeerInfo.fromDto(rust_api.PeerInfoDto dto) {
@@ -41,7 +40,7 @@ class PeerInfo {
       version: dto.version,
       isConnected: true,
       latencyMs: dto.latencyMs?.toInt(),
-      isMobile: dto.isMobile,
+      
     );
   }
 }

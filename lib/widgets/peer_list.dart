@@ -73,10 +73,10 @@ class _PeerTile extends StatelessWidget {
           children: [
             Center(
               child: Icon(
-                peer.isMobile ? Icons.phone_android : Icons.computer,
-                color: statusColor,
-                size: 24,
-              ),
+                  Icons.device_unknown,
+                  color: statusColor,
+                  size: 24,
+                ),
             ),
             // Connection status indicator
             Positioned(

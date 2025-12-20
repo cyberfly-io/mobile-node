@@ -31,9 +31,6 @@ pub struct NodeCapabilities {
     pub geo: bool,
     /// Whether the node supports blob transfers
     pub blobs: bool,
-    /// Whether the node is a mobile node
-    #[serde(default)]
-    pub mobile: bool,
 }
 
 impl NodeCapabilities {
@@ -44,8 +41,92 @@ impl NodeCapabilities {
             timeseries: false,
             geo: false,
             blobs: true,
-            mobile: true,
         }
+    }
+}
+
+/// Discovery node announcement - matches cyberfly-rust-node exactly
+/// Used with IMPROVED_DISCOVERY_TOPIC (cyberfly-discovery-v2-postcard!!)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiscoveryNode {
+    /// Human-readable node name
+    pub name: String,
+    /// Iroh NodeId (EndpointId)
+    pub node_id: iroh::EndpointId,
+    /// Monotonic counter for ordering
+    pub count: u32,
+    /// Node region for geographic awareness
+    pub region: String,
+    /// Node capabilities
+    pub capabilities: NodeCapabilities,
+}
+
+/// Signed gossip message with Ed25519 signature - matches cyberfly-rust-node exactly
+/// Uses postcard binary serialization for efficiency
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SignedDiscoveryMessage {
+    /// Ed25519 verifying key (public key) of sender - 32 bytes
+    pub from: Vec<u8>,
+    /// Serialized DiscoveryNode data (postcard encoded)
+    pub data: Vec<u8>,
+    /// Ed25519 signature over data - 64 bytes
+    pub signature: Vec<u8>,
+}
+
+impl SignedDiscoveryMessage {
+    /// Sign and encode a discovery node announcement
+    pub fn sign_and_encode(
+        secret_key: &ed25519_dalek::SigningKey,
+        node: &DiscoveryNode,
+    ) -> Result<Vec<u8>> {
+        use ed25519_dalek::Signer;
+        
+        // Use postcard for efficient binary serialization
+        let data: Vec<u8> = postcard::to_stdvec(node)
+            .map_err(|e| anyhow!("Postcard serialize error: {}", e))?;
+
+        let signature = secret_key.sign(&data);
+        let from = secret_key.verifying_key();
+
+        let signed_message = Self {
+            from: from.to_bytes().to_vec(),
+            data,
+            signature: signature.to_bytes().to_vec(),
+        };
+
+        let encoded = postcard::to_stdvec(&signed_message)
+            .map_err(|e| anyhow!("Postcard encode error: {}", e))?;
+
+        Ok(encoded)
+    }
+
+    /// Verify signature and decode discovery node
+    pub fn verify_and_decode(bytes: &[u8]) -> Result<(ed25519_dalek::VerifyingKey, DiscoveryNode)> {
+        use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+        
+        let signed_message: Self = postcard::from_bytes(bytes)
+            .map_err(|e| anyhow!("Postcard decode error: {}", e))?;
+
+        let from_bytes: [u8; 32] = signed_message.from.try_into()
+            .map_err(|_| anyhow!("Invalid public key length"))?;
+        let key = VerifyingKey::from_bytes(&from_bytes)
+            .map_err(|e| anyhow!("Invalid public key: {}", e))?;
+
+        let sig_bytes: [u8; 64] = signed_message.signature.try_into()
+            .map_err(|_| anyhow!("Invalid signature length"))?;
+        let signature = Signature::from_bytes(&sig_bytes);
+
+        key.verify(&signed_message.data, &signature)
+            .map_err(|e| anyhow!("Signature verification failed: {}", e))?;
+
+        // Decode discovery node payload using postcard (upstream implementation).
+        // If decoding fails, include data length and hex dump for diagnosis.
+        let node: DiscoveryNode = postcard::from_bytes(&signed_message.data).map_err(|e| {
+            let hex = hex::encode(&signed_message.data);
+            anyhow!("Postcard decode node error: {}; data_len={}; data_hex={}", e, signed_message.data.len(), hex)
+        })?;
+
+        Ok((key, node))
     }
 }
 

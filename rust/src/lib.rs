@@ -6,6 +6,7 @@
 mod api;
 mod crypto;
 mod discovery;
+mod network_resilience;
 mod node;
 mod storage;
 mod sync;
@@ -19,3 +20,4 @@ pub use discovery::{PeerRegistry, PeerAnnouncement, DiscoveredPeer, NodeCapabili
 pub use sync::{SyncManager, SyncMessage, SignedOperation, SyncStats};
 pub use node::{CyberflyNode, NodeStatus, NodeEvent, GossipMessage};
 pub use storage::Storage;
+pub use network_resilience::NetworkResilience;

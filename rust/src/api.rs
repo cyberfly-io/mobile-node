@@ -90,7 +90,7 @@ impl From<&DiscoveredPeer> for PeerInfoDto {
             region: peer.region.clone(),
             version: peer.version.clone(),
             latency_ms: peer.latency_ms,
-            is_mobile: peer.capabilities.mobile,
+            is_mobile: peer.version.as_ref().map(|v| v.contains("mobile")).unwrap_or(false),
         }
     }
 }

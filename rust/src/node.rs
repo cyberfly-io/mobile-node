@@ -10,6 +10,8 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use chrono::Utc;
+use rand::Rng;
 
 use anyhow::{anyhow, Result};
 use bytes::Bytes;
@@ -37,10 +39,13 @@ use crate::discovery::{
     PeerRegistry, PeerAnnouncement, PeerListAnnouncement, PeerDiscoveryAnnouncement,
     DiscoveryMessage, LatencyRequest, LatencyResponse,
     NodeCapabilities, DiscoveredPeer, ANNOUNCE_INTERVAL_SECS,
+    DiscoveryNode, SignedDiscoveryMessage,
 };
+use crate::network_resilience::NetworkResilience;
 
-/// Bootstrap peer for the Cyberfly network
+/// Bootstrap peers for the Cyberfly network
 const DEFAULT_BOOTSTRAP: &str = "04b754ba2a3da0970d72d08b8740fb2ad96e63cf8f8bef6b7f1ab84e5b09a7f8@67.211.219.34:31001";
+const DEFAULT_BOOTSTRAP_2: &str = "f53f94261cd3c60832c347fda7b92c6c8b7249baab8196a5bfc3915418c43e72@208.73.202.62:31001";
 
 /// Gossip topics (must be exactly 32 bytes)
 const DATA_TOPIC: &[u8; 32] = b"decentralized-db-data-v1-iroh!!!";
@@ -161,6 +166,73 @@ mod base64_bytes {
     }
 }
 
+// Helper: connect to a peer with per-peer backoff handling and metrics.
+async fn connect_peer(
+    endpoint: Endpoint,
+    peer_id: EndpointId,
+    addr_opt: Option<String>,
+    peer_backoff: Arc<DashMap<EndpointId, (u32, chrono::DateTime<chrono::Utc>)>>,
+    resilience: Option<Arc<NetworkResilience>>,
+) -> Result<()> {
+    // Check backoff
+    if let Some(back) = peer_backoff.get(&peer_id) {
+        let (_fails, next_allowed) = *back.value();
+        let now = Utc::now();
+        if now < next_allowed {
+            tracing::debug!(%peer_id, %next_allowed, "Skipping connect due to backoff");
+            return Err(anyhow!("backoff"));
+        }
+    }
+
+    // Check cycle connection limits via NetworkResilience if present
+    if let Some(res) = &resilience {
+        if !res.allow_connection_attempt() {
+            tracing::debug!(%peer_id, "Skipping connect: connection attempts exceeded for this cycle");
+            return Err(anyhow!("connection_attempts_exceeded"));
+        }
+    }
+
+    // (metrics not wired in mobile crate) -- skip recording here
+
+    // Attempt connect
+    let res = if let Some(addr_str) = addr_opt {
+        if let Ok(socket_addr) = addr_str.parse::<std::net::SocketAddr>() {
+            let endpoint_addr = iroh::EndpointAddr::from_parts(
+                peer_id,
+                vec![iroh::TransportAddr::Ip(socket_addr)],
+            );
+            endpoint.connect(endpoint_addr, iroh_gossip::ALPN).await
+        } else {
+            endpoint.connect(peer_id, iroh_gossip::ALPN).await
+        }
+    } else {
+        endpoint.connect(peer_id, iroh_gossip::ALPN).await
+    };
+
+    match res {
+        Ok(_) => {
+            // Clear backoff on success
+            peer_backoff.remove(&peer_id);
+            Ok(())
+        }
+        Err(e) => {
+            // (metrics not wired in mobile crate) -- skip recording failure
+            // Update backoff state (exponential)
+            let mut failures = 1u32;
+            if let Some(mut entry) = peer_backoff.get_mut(&peer_id) {
+                failures = entry.value_mut().0.saturating_add(1);
+            }
+            let base_secs = 2u64;
+            let max_secs = 300u64; // 5 minutes
+            let backoff_secs = base_secs.checked_shl((failures - 1) as u32).unwrap_or(max_secs).min(max_secs);
+            let next_allowed = Utc::now() + chrono::Duration::seconds(backoff_secs as i64);
+            peer_backoff.insert(peer_id, (failures, next_allowed));
+            tracing::info!(%peer_id, failures, %next_allowed, "Set backoff after failed connect");
+            Err(anyhow!(e))
+        }
+    }
+}
+
 /// Node status
 #[derive(Debug, Clone)]
 pub struct NodeStatus {
@@ -247,6 +319,8 @@ pub struct CyberflyNode {
     shared_state: Arc<RwLock<SharedNodeState>>,
     peer_registry: Arc<RwLock<PeerRegistry>>,
     storage: Arc<Storage>,
+    // Optional network resilience manager (initialized on start)
+    resilience: Option<Arc<NetworkResilience>>,
 }
 
 impl CyberflyNode {
@@ -361,7 +435,7 @@ impl CyberflyNode {
         // Parse bootstrap peers - we'll connect in background
         let mut bootstrap_node_ids: Vec<EndpointId> = Vec::new();
         let all_bootstrap_strings: Vec<String> = {
-            let mut v = vec![DEFAULT_BOOTSTRAP.to_string()];
+            let mut v = vec![DEFAULT_BOOTSTRAP.to_string(), DEFAULT_BOOTSTRAP_2.to_string()];
             v.extend(bootstrap_peers.iter().cloned());
             v
         };
@@ -380,37 +454,36 @@ impl CyberflyNode {
         // Spawn bootstrap connections in background (non-blocking)
         let endpoint_clone = endpoint.clone();
         let bootstrap_strings = all_bootstrap_strings.clone();
-        tokio::spawn(async move {
-            log_info!(">>> Starting background bootstrap connections...");
-            for peer_str in &bootstrap_strings {
-                if let Some((node_id_str, addr_str)) = peer_str.split_once('@') {
-                    if let Ok(peer_node_id) = node_id_str.parse::<EndpointId>() {
-                        if let Ok(socket_addr) = addr_str.parse::<std::net::SocketAddr>() {
-                            // Single attempt with short timeout (background, don't retry heavily)
-                            let endpoint_addr = iroh::EndpointAddr::from_parts(
-                                peer_node_id,
-                                vec![iroh::TransportAddr::Ip(socket_addr)],
-                            );
-                            
-                            let connect_result = tokio::time::timeout(
-                                Duration::from_secs(5),
-                                endpoint_clone.connect(endpoint_addr, iroh_gossip::ALPN)
-                            ).await;
-                            
-                            match connect_result {
-                                Ok(Ok(_)) => {
-                                    log_info!("✓ Background connected to bootstrap: {}", peer_node_id.fmt_short());
-                                }
-                                _ => {
-                                    log_warn!(">>> Background bootstrap connect failed: {}", peer_node_id.fmt_short());
-                                }
+        // Per-peer backoff map for bootstrap attempts (keeps state across attempts)
+        let peer_backoff_start: Arc<DashMap<EndpointId, (u32, chrono::DateTime<chrono::Utc>)>> = Arc::new(DashMap::new());
+        for peer_str in &bootstrap_strings {
+            if let Some((node_id_str, addr_str)) = peer_str.split_once('@') {
+                if let Ok(peer_node_id) = node_id_str.parse::<EndpointId>() {
+                    // spawn a small background connect task per bootstrap peer with jitter
+                    let endpoint_clone2 = endpoint_clone.clone();
+                    let addr_opt = Some(addr_str.to_string());
+                    let pb = peer_backoff_start.clone();
+                    tokio::spawn(async move {
+                        log_info!(">>> Background bootstrap connect task for {}", peer_node_id.fmt_short());
+                        // small randomized jitter up to 1s to avoid synchronized storms
+                        let jitter_ms: u64 = rand::thread_rng().gen_range(0..=1000);
+                        tokio::time::sleep(Duration::from_millis(jitter_ms)).await;
+                        let connect_res = tokio::time::timeout(
+                            Duration::from_secs(5),
+                            connect_peer(endpoint_clone2, peer_node_id, addr_opt, pb.clone(), None),
+                        ).await;
+                        match connect_res {
+                            Ok(Ok(())) => {
+                                log_info!("✓ Background connected to bootstrap: {}", peer_node_id.fmt_short());
+                            }
+                            _ => {
+                                log_warn!(">>> Background bootstrap connect failed: {}", peer_node_id.fmt_short());
                             }
                         }
-                    }
+                    });
                 }
             }
-            log_info!(">>> Background bootstrap connections complete");
-        });
+        }
 
         // Clone for the task
         let node_id_clone = node_id_str.clone();
@@ -452,6 +525,16 @@ impl CyberflyNode {
         let runtime_handle = tokio::runtime::Handle::current();
         
         // Spawn the main node task using the runtime handle
+        // Initialize network resilience manager and start background tasks
+        let resilience = std::sync::Arc::new(NetworkResilience::new());
+        resilience.clone().start_background();
+
+        // Also start bootstrap reconnect tasks using the full bootstrap strings
+        let bs_clone = all_bootstrap_strings.clone();
+        resilience.clone().start_bootstrap_reconnects(endpoint.clone(), bs_clone);
+
+        let resilience_clone_for_task = resilience.clone();
+
         runtime_handle.spawn(async move {
             Self::run_node(
                 endpoint,
@@ -465,6 +548,7 @@ impl CyberflyNode {
                 bootstrap_node_ids,
                 signing_key,
                 region,
+                Some(resilience_clone_for_task),
                 shared_state_clone,
                 peer_registry_clone,
             ).await;
@@ -479,6 +563,7 @@ impl CyberflyNode {
             shared_state,
             peer_registry,
             storage: storage_arc,
+            resilience: Some(resilience),
         })
     }
 
@@ -495,6 +580,7 @@ impl CyberflyNode {
         bootstrap_peers: Vec<EndpointId>,
         signing_key: SigningKey,
         region: Option<String>,
+        resilience: Option<Arc<NetworkResilience>>,
         shared_state: Arc<RwLock<SharedNodeState>>,
         peer_registry: Arc<RwLock<PeerRegistry>>,
     ) {
@@ -523,6 +609,15 @@ impl CyberflyNode {
         // Pending latency requests
         let pending_latency: Arc<RwLock<HashMap<String, PendingLatencyRequest>>> = 
             Arc::new(RwLock::new(HashMap::new()));
+
+        // Per-peer backoff state to avoid connect storms after failures.
+        // Prefer the shared map provided by NetworkResilience when available.
+        let peer_backoff: Arc<DashMap<EndpointId, (u32, chrono::DateTime<chrono::Utc>)>> =
+            if let Some(res) = &resilience {
+                res.peer_backoff()
+            } else {
+                Arc::new(DashMap::new())
+            };
 
         // Send started event
         log_info!(">>> About to send Started event");
@@ -753,6 +848,8 @@ impl CyberflyNode {
             let peer_registry_clone = peer_registry.clone();
             let shared_state_clone = shared_state.clone();
             let endpoint_clone = endpoint.clone();
+            let pb = peer_backoff.clone();
+            let res_clone = resilience.clone();
 
             tokio::spawn(async move {
                 while let Some(event) = receiver.next().await {
@@ -785,25 +882,10 @@ impl CyberflyNode {
                                         
                                         // ACTIVELY CONNECT to new peer (like desktop node does)
                                         if let Ok(peer_endpoint_id) = node_id.parse::<EndpointId>() {
-                                            // Try to connect with address if available
-                                            let connect_result = if let Some(ref addr_str) = address {
-                                                if let Ok(socket_addr) = addr_str.parse::<std::net::SocketAddr>() {
-                                                    let endpoint_addr = iroh::EndpointAddr::from_parts(
-                                                        peer_endpoint_id,
-                                                        vec![iroh::TransportAddr::Ip(socket_addr)],
-                                                    );
-                                                    endpoint_clone.connect(endpoint_addr, iroh_gossip::ALPN).await
-                                                } else {
-                                                    // No valid address, try DHT/relay
-                                                    endpoint_clone.connect(peer_endpoint_id, iroh_gossip::ALPN).await
-                                                }
-                                            } else {
-                                                // No address, try DHT/relay discovery
-                                                endpoint_clone.connect(peer_endpoint_id, iroh_gossip::ALPN).await
-                                            };
-                                            
-                                            match connect_result {
-                                                Ok(_conn) => {
+                                            // Use backoff-aware connect helper
+                                            let addr_opt = address.clone();
+                                            match connect_peer(endpoint_clone.clone(), peer_endpoint_id, addr_opt, pb.clone(), res_clone.clone()).await {
+                                                Ok(_) => {
                                                     log_info!("✓ Connected to discovered peer {} via announcement", node_id);
                                                 }
                                                 Err(e) => {
@@ -930,6 +1012,8 @@ impl CyberflyNode {
             let event_tx_clone = event_tx.clone();
             let shared_state_clone = shared_state.clone();
             let node_id_clone = node_id.clone();
+            let pb = peer_backoff.clone();
+            let resilience_pd = resilience.clone();
 
             tokio::spawn(async move {
                 log_info!("📡 PEER_DISCOVERY LISTENER TASK STARTED");
@@ -977,15 +1061,15 @@ impl CyberflyNode {
                                 for peer_str in &announcement.connected_peers {
                                     let node_id_str = peer_str.split('@').next().unwrap_or(peer_str);
                                     let address_str = peer_str.split('@').nth(1).map(|s| s.to_string());
-                                    
+
                                     // Skip our own ID
                                     if node_id_str == node_id_clone.to_string() {
                                         continue;
                                     }
-                                    
+
                                     // Check if already known
                                     let is_new = !peer_registry_clone.read().has_peer(node_id_str);
-                                    
+
                                     if is_new {
                                         // Register the peer
                                         peer_registry_clone.write().register_peer_from_list(
@@ -993,27 +1077,14 @@ impl CyberflyNode {
                                             address_str.clone(),
                                             Some(announcement.region.clone()),
                                         );
-                                        
+
                                         log_info!("🔗 Connecting to new peer {} from announcement", node_id_str);
-                                        
-                                        // Try to connect
+
+                                        // Try to connect (backoff-aware)
                                         if let Ok(peer_endpoint_id) = node_id_str.parse::<EndpointId>() {
-                                            let connect_result = if let Some(ref addr_str) = address_str {
-                                                if let Ok(socket_addr) = addr_str.parse::<std::net::SocketAddr>() {
-                                                    let endpoint_addr = iroh::EndpointAddr::from_parts(
-                                                        peer_endpoint_id,
-                                                        vec![iroh::TransportAddr::Ip(socket_addr)],
-                                                    );
-                                                    endpoint_clone.connect(endpoint_addr, iroh_gossip::ALPN).await
-                                                } else {
-                                                    endpoint_clone.connect(peer_endpoint_id, iroh_gossip::ALPN).await
-                                                }
-                                            } else {
-                                                endpoint_clone.connect(peer_endpoint_id, iroh_gossip::ALPN).await
-                                            };
-                                            
-                                            match connect_result {
-                                                Ok(_conn) => {
+                                            let addr_opt = address_str.clone();
+                                            match connect_peer(endpoint_clone.clone(), peer_endpoint_id, addr_opt, pb.clone(), resilience_pd.clone()).await {
+                                                Ok(_) => {
                                                     log_info!("✓ Connected to peer {} from discovery", node_id_str);
                                                 }
                                                 Err(e) => {
@@ -1021,14 +1092,14 @@ impl CyberflyNode {
                                                 }
                                             }
                                         }
-                                        
+
                                         let _ = event_tx_clone.send(NodeEvent::PeerDiscovered {
                                             peer_id: node_id_str.to_string(),
                                             address: address_str,
                                         }).await;
                                     }
                                 }
-                                
+
                                 // Update counts
                                 let peer_count = peer_registry_clone.read().peer_count();
                                 {
@@ -1056,22 +1127,9 @@ impl CyberflyNode {
                                         let address_str = peer_str.split('@').nth(1).map(|s| s.to_string());
                                         
                                         if let Ok(peer_endpoint_id) = node_id_str.parse::<EndpointId>() {
-                                            let connect_result = if let Some(ref addr_str) = address_str {
-                                                if let Ok(socket_addr) = addr_str.parse::<std::net::SocketAddr>() {
-                                                    let endpoint_addr = iroh::EndpointAddr::from_parts(
-                                                        peer_endpoint_id,
-                                                        vec![iroh::TransportAddr::Ip(socket_addr)],
-                                                    );
-                                                    endpoint_clone.connect(endpoint_addr, iroh_gossip::ALPN).await
-                                                } else {
-                                                    endpoint_clone.connect(peer_endpoint_id, iroh_gossip::ALPN).await
-                                                }
-                                            } else {
-                                                endpoint_clone.connect(peer_endpoint_id, iroh_gossip::ALPN).await
-                                            };
-                                            
-                                            match connect_result {
-                                                Ok(_conn) => {
+                                            let addr_opt = address_str.clone();
+                                            match connect_peer(endpoint_clone.clone(), peer_endpoint_id, addr_opt, pb.clone(), resilience_pd.clone()).await {
+                                                Ok(_) => {
                                                     log_info!("✓ Connected to peer {} from peer list", node_id_str);
                                                 }
                                                 Err(e) => {
@@ -1127,51 +1185,79 @@ impl CyberflyNode {
             let event_tx_clone = event_tx.clone();
             let endpoint_clone = endpoint.clone();
             let node_id_clone = node_id.clone();
+            let pb = peer_backoff.clone();
+            let resilience_id = resilience.clone();
 
             tokio::spawn(async move {
                 log_info!("✓ Improved discovery (v2 postcard) listener started");
                 while let Some(event) = receiver.next().await {
                     match event {
                         Ok(GossipEvent::Received(msg)) => {
-                            // Try to decode postcard-serialized discovery message
-                            // The upstream format is: SignedDiscoveryMessage { from: [u8;32], data: Vec<u8>, signature: [u8;64] }
-                            // For now, we just track that we received something from this peer
-                            let from_peer = msg.delivered_from.to_string();
-                            
-                            // Skip our own messages
-                            if from_peer == node_id_clone {
-                                continue;
-                            }
-                            
-                            // Register peer from improved discovery
-                            let is_new = peer_registry_clone.write().register_connected_peer(from_peer.clone());
-                            
-                            // Update peer counts
-                            let peer_count = peer_registry_clone.read().peer_count();
-                            {
-                                let mut state = shared_state_clone.write();
-                                state.discovered_peers = peer_count;
-                                state.connected_peers = peer_count;
-                            }
-                            
-                            if is_new {
-                                log_info!("📡 Discovered peer via improved discovery (v2): {}", from_peer);
-                                let _ = event_tx_clone.send(NodeEvent::PeerDiscovered {
-                                    peer_id: from_peer.clone(),
-                                    address: None,
-                                }).await;
-                                
-                                // ACTIVELY CONNECT to this peer (like desktop node does)
-                                if let Ok(peer_endpoint_id) = from_peer.parse::<EndpointId>() {
-                                    // No address available from improved discovery, try DHT/relay
-                                    match endpoint_clone.connect(peer_endpoint_id, iroh_gossip::ALPN).await {
-                                        Ok(_conn) => {
-                                            log_info!("✓ Connected to peer {} via improved discovery", from_peer);
-                                        }
-                                        Err(e) => {
-                                            log_warn!("Failed to connect to peer {}: {}", from_peer, e);
+                            // Decode and verify the postcard-serialized signed discovery message
+                            // This matches cyberfly-rust-node format exactly
+                            match SignedDiscoveryMessage::verify_and_decode(&msg.content) {
+                                Ok((verifying_key, discovery_node)) => {
+                                    // Verify NodeId matches the signing key (prevent spoofing)
+                                    let key_bytes = verifying_key.to_bytes();
+                                    let expected_node_id = if let Ok(pk) = iroh::PublicKey::from_bytes(&key_bytes) {
+                                        iroh::EndpointId::from(pk)
+                                    } else {
+                                        log_warn!("Invalid public key in discovery message");
+                                        continue;
+                                    };
+                                    
+                                    if discovery_node.node_id != expected_node_id {
+                                        log_warn!("NodeId spoofing detected: claimed {} but key is {}", 
+                                            discovery_node.node_id, expected_node_id);
+                                        continue;
+                                    }
+                                    
+                                    let from_peer = discovery_node.node_id.to_string();
+                                    
+                                    // Skip our own messages
+                                    if from_peer == node_id_clone {
+                                        continue;
+                                    }
+                                    
+                                    // Register peer with full info from discovery
+                                    let is_new = peer_registry_clone.write().register_peer_from_list(
+                                        from_peer.clone(),
+                                        None, // No address in v2 format
+                                        Some(discovery_node.region.clone()),
+                                    );
+                                    
+                                    // Update peer counts
+                                    let peer_count = peer_registry_clone.read().peer_count();
+                                    {
+                                        let mut state = shared_state_clone.write();
+                                        state.discovered_peers = peer_count;
+                                        state.connected_peers = peer_count;
+                                    }
+                                    
+                                    if is_new {
+                                        log_info!("📡 Discovered peer via v2 discovery: {} (name: {}, region: {})", 
+                                            from_peer, discovery_node.name, discovery_node.region);
+                                        let _ = event_tx_clone.send(NodeEvent::PeerDiscovered {
+                                            peer_id: from_peer.clone(),
+                                            address: None,
+                                        }).await;
+                                        
+                                        // ACTIVELY CONNECT to this peer (like desktop node does)
+                                        if let Ok(peer_endpoint_id) = from_peer.parse::<EndpointId>() {
+                                            match connect_peer(endpoint_clone.clone(), peer_endpoint_id, None, pb.clone(), resilience_id.clone()).await {
+                                                Ok(_) => {
+                                                    log_info!("✓ Connected to peer {} via v2 discovery", from_peer);
+                                                }
+                                                Err(e) => {
+                                                    log_warn!("Failed to connect to peer {}: {}", from_peer, e);
+                                                }
+                                            }
                                         }
                                     }
+                                }
+                                Err(e) => {
+                                    // Could be a message from a node using different format - log at debug level
+                                    log_info!("Could not decode v2 discovery message: {}", e);
                                 }
                             }
                         }
@@ -1302,79 +1388,30 @@ impl CyberflyNode {
                 
                 // Also broadcast on improved discovery topic (v2 postcard format)
                 // This uses postcard binary serialization matching cyberfly-rust-node EXACTLY
-                // Desktop format from gossip_discovery.rs:
-                //   DiscoveryNode { name, node_id: NodeId, count, region, capabilities }
-                //   SignedDiscoveryMessage { from: [u8;32], data: Vec<u8>, signature: [u8;64] }
                 if let Some(sender) = improved_discovery_sender_announce.lock().await.as_ref() {
-                    // Match desktop's DiscoveryNode format EXACTLY
-                    // Desktop uses EndpointId (NodeId) directly, not String
-                    #[derive(serde::Serialize, serde::Deserialize)]
-                    struct DiscoveryNodeV2 {
-                        name: String,
-                        node_id: iroh::EndpointId,  // Must be EndpointId, not String!
-                        count: u32,
-                        region: String,
-                        capabilities: CapabilitiesV2,
-                    }
-                    
-                    // Desktop's NodeCapabilities format
-                    #[derive(serde::Serialize, serde::Deserialize)]
-                    struct CapabilitiesV2 {
-                        mqtt: bool,
-                        streams: bool,
-                        timeseries: bool,
-                        geo: bool,
-                        blobs: bool,
-                    }
-                    
-                    // Desktop's SignedDiscoveryMessage format - uses Vec<u8> for serde compatibility
-                    #[derive(serde::Serialize, serde::Deserialize)]
-                    struct SignedDiscoveryMessageV2 {
-                        from: Vec<u8>,       // ed25519 public key (32 bytes)
-                        data: Vec<u8>,       // postcard-serialized DiscoveryNode
-                        signature: Vec<u8>,  // ed25519 signature (64 bytes)
-                    }
-                    
                     // Parse our node_id string back to EndpointId
                     if let Ok(our_endpoint_id) = node_id_announce.parse::<iroh::EndpointId>() {
                         // We use a simple counter that increments each announcement
                         static ANNOUNCE_COUNT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
                         let count = ANNOUNCE_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                         
-                        let node = DiscoveryNodeV2 {
+                        let node = DiscoveryNode {
                             name: format!("cyberfly-mobile-{}", &node_id_announce[..8]),
                             node_id: our_endpoint_id,
                             count,
                             region: region_announce.clone().unwrap_or_else(|| "unknown".to_string()),
-                            capabilities: CapabilitiesV2 {
-                                mqtt: false,
-                                streams: false,
-                                timeseries: false,
-                                geo: false,
-                                blobs: true,
-                            },
+                            capabilities: NodeCapabilities::mobile_node(),
                         };
                         
-                        // Serialize inner data with postcard
-                        if let Ok(data) = postcard::to_stdvec(&node) {
-                            // Sign the data with ed25519
-                            use ed25519_dalek::Signer;
-                            let signature = signing_key_announce.sign(&data);
-                            
-                            // Create signed message with Vec<u8> types (serde compatible)
-                            let signed_msg = SignedDiscoveryMessageV2 {
-                                from: signing_key_announce.verifying_key().to_bytes().to_vec(),
-                                data,
-                                signature: signature.to_bytes().to_vec(),
-                            };
-                            
-                            // Serialize the signed message with postcard
-                            if let Ok(encoded) = postcard::to_stdvec(&signed_msg) {
+                        // Use SignedDiscoveryMessage::sign_and_encode - matches desktop exactly
+                        match SignedDiscoveryMessage::sign_and_encode(&signing_key_announce, &node) {
+                            Ok(encoded) => {
                                 match sender.broadcast(Bytes::from(encoded)).await {
                                     Ok(_) => log_info!("📡 Broadcast v2 discovery (postcard+ed25519)"),
                                     Err(e) => log_warn!("Failed to broadcast v2 discovery: {}", e),
                                 }
                             }
+                            Err(e) => log_warn!("Failed to encode v2 discovery: {}", e),
                         }
                     }
                 }

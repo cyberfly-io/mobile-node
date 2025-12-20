@@ -1217,8 +1217,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final successColor = CyberTheme.success(context);
     
     // Calculate stats
-    final mobileCount = peers.where((p) => p.isMobile).length;
-    final desktopCount = peers.length - mobileCount;
+    final peersCount = peers.length;
     
     // Get unique regions
     final regions = <String>{};
@@ -1252,22 +1251,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         children: [
           _buildPeerStat(
             context,
-            icon: Icons.phone_android,
-            label: 'Mobile',
-            value: mobileCount.toString(),
+            icon: Icons.people,
+            label: 'Peers',
+            value: peersCount.toString(),
             color: primaryColor,
-          ),
-          Container(
-            width: 1,
-            height: 40,
-            color: isDark ? Colors.white.withOpacity(0.1) : CyberColorsLight.divider,
-          ),
-          _buildPeerStat(
-            context,
-            icon: Icons.computer,
-            label: 'Desktop',
-            value: desktopCount.toString(),
-            color: successColor,
           ),
           Container(
             width: 1,
