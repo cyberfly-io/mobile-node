@@ -12,6 +12,9 @@ mod storage;
 mod sync;
 mod frb_generated;
 
+#[cfg(target_os = "android")]
+mod android_init;
+
 pub use api::*;
 
 // Re-export for external use

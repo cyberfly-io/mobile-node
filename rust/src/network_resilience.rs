@@ -38,6 +38,18 @@ impl NetworkResilience {
         }
     }
 
+    /// Record a successful operation for a peer, optionally with measured latency (ms).
+    /// Minimal no-op implementation for the mobile crate to match upstream API.
+    pub fn record_success(&self, peer_id: EndpointId, latency_ms: Option<f64>) {
+        let _ = (peer_id, latency_ms);
+        tracing::debug!(peer = %peer_id, "record_success called for peer");
+    }
+
+    /// Record a failed operation for a peer. Minimal no-op implementation.
+    pub fn record_failure(&self, peer_id: EndpointId) {
+        tracing::debug!(peer = %peer_id, "record_failure called for peer");
+    }
+
     /// Return a clone of the shared backoff map.
     pub fn peer_backoff(&self) -> Arc<DashMap<EndpointId, (u32, chrono::DateTime<chrono::Utc>)>> {
         self.peer_backoff.clone()
@@ -45,13 +57,34 @@ impl NetworkResilience {
 
     /// Start a background maintenance task (stub).
     pub fn start_background(self: Arc<Self>) {
-        tokio::spawn(async move {
-            loop {
-                // reset per-cycle counters
-                tokio::time::sleep(Duration::from_secs(self.cycle_secs)).await;
-                self.connection_attempts.store(0, Ordering::SeqCst);
-            }
-        });
+        // Reset per-cycle connection attempt counter.
+        {
+            let this = self.clone();
+            tokio::spawn(async move {
+                loop {
+                    tokio::time::sleep(Duration::from_secs(this.cycle_secs)).await;
+                    this.connection_attempts.store(0, Ordering::SeqCst);
+                }
+            });
+        }
+
+        // Periodically prune expired peer_backoff entries so the map does not grow
+        // unbounded on long-running mobile nodes that repeatedly fail to connect.
+        {
+            let pb = self.peer_backoff.clone();
+            tokio::spawn(async move {
+                loop {
+                    tokio::time::sleep(Duration::from_secs(3600)).await;
+                    let cutoff = Utc::now() - chrono::Duration::hours(2);
+                    let before = pb.len();
+                    pb.retain(|_, (_, next_allowed)| *next_allowed > cutoff);
+                    let removed = before.saturating_sub(pb.len());
+                    if removed > 0 {
+                        tracing::info!("NetworkResilience: pruned {} stale peer_backoff entries", removed);
+                    }
+                }
+            });
+        }
     }
 
     /// Return true if a new connection attempt is allowed in the current cycle.

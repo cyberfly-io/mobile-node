@@ -2,40 +2,50 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 /// CyberFly Color Palette
+///
+/// NOTE: Token names (`neonCyan`, etc.) are kept for API compatibility with
+/// existing widgets, but the *values* have been toned down from pure neons to
+/// muted Tailwind-400-style hues for a cleaner, more modern look. If you
+/// actually need a vivid neon somewhere (e.g. a brand accent), use
+/// [CyberColors.accentCyan] etc. below.
 class CyberColors {
   CyberColors._();
 
-  // Primary Neon Colors
-  static const Color neonCyan = Color(0xFF00FFFF);
-  static const Color neonMagenta = Color(0xFFFF00FF);
-  static const Color neonGreen = Color(0xFF00FF41);
-  static const Color neonYellow = Color(0xFFFFFF00);
-  static const Color neonRed = Color(0xFFFF0055);
-  static const Color neonOrange = Color(0xFFFF6B00);
-  static const Color neonPurple = Color(0xFF9D00FF);
-  static const Color neonBlue = Color(0xFF00A3FF);
+  // Primary accent colors — toned-down, modern palette
+  static const Color neonCyan = Color(0xFF22D3EE);    // cyan-400
+  static const Color neonMagenta = Color(0xFFC084FC); // purple-400
+  static const Color neonGreen = Color(0xFF34D399);   // emerald-400
+  static const Color neonYellow = Color(0xFFFBBF24);  // amber-400
+  static const Color neonRed = Color(0xFFF87171);     // red-400
+  static const Color neonOrange = Color(0xFFFB923C);  // orange-400
+  static const Color neonPurple = Color(0xFFA78BFA);  // violet-400
+  static const Color neonBlue = Color(0xFF60A5FA);    // blue-400
 
-  // Background Colors (Deep Space Blue/Purple)
-  static const Color backgroundDark = Color(0xFF0A0A1A);
-  static const Color backgroundMedium = Color(0xFF12122B);
-  static const Color backgroundLight = Color(0xFF1A1A3E);
-  static const Color backgroundCard = Color(0xFF0F0F28);
-  static const Color backgroundElevated = Color(0xFF181840);
-  
-  // Deep gradient colors
-  static const Color deepBlue = Color(0xFF0D1B2A);
-  static const Color deepPurple = Color(0xFF1B0A28);
-  static const Color midnightBlue = Color(0xFF0B132B);
-  static const Color cosmicPurple = Color(0xFF1C0F30);
-  
+  // High-saturation accents — reserved for special emphasis only.
+  static const Color accentCyan = Color(0xFF06B6D4);
+  static const Color accentPurple = Color(0xFF8B5CF6);
+
+  // Background Colors (slate-tinged dark surfaces, not black-purple)
+  static const Color backgroundDark = Color(0xFF0B0F1A);     // slate-950 tinted
+  static const Color backgroundMedium = Color(0xFF111827);   // gray-900
+  static const Color backgroundLight = Color(0xFF1E293B);    // slate-800
+  static const Color backgroundCard = Color(0xFF111827);     // gray-900
+  static const Color backgroundElevated = Color(0xFF1F2937); // gray-800
+
+  // Deep gradient colors (kept for existing widgets, now more neutral)
+  static const Color deepBlue = Color(0xFF0F172A);     // slate-900
+  static const Color deepPurple = Color(0xFF1E1B3A);
+  static const Color midnightBlue = Color(0xFF0B1220);
+  static const Color cosmicPurple = Color(0xFF1E1B3A);
+
   // Alias for convenience
   static const Color cardDark = backgroundCard;
 
   // Text Colors
-  static const Color textPrimary = Color(0xFFE0E6FF);
-  static const Color textSecondary = Color(0xFF8892B0);
-  static const Color textDim = Color(0xFF5A6380);
-  static const Color textMuted = Color(0xFF3D4460);
+  static const Color textPrimary = Color(0xFFE5E7EB);   // gray-200
+  static const Color textSecondary = Color(0xFF94A3B8); // slate-400
+  static const Color textDim = Color(0xFF64748B);       // slate-500
+  static const Color textMuted = Color(0xFF475569);     // slate-600
 
   // Status Colors
   static const Color online = neonGreen;
@@ -76,10 +86,12 @@ class CyberColors {
     end: Alignment.bottomCenter,
   );
 
+  // Card gradient: near-flat for a modern, quiet look.
   static const LinearGradient cardGradient = LinearGradient(
     colors: [backgroundCard, backgroundElevated],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
+    stops: [0.0, 1.0],
   );
   
   // New futuristic gradients
@@ -128,22 +140,19 @@ class CyberColors {
 class CyberShadows {
   CyberShadows._();
 
+  // Modernized: dimmer, tighter glow for a cleaner look.
+  // (Kept same public signature so callers can still pass `intensity`.)
   static List<BoxShadow> neonGlow(Color color, {double intensity = 1.0}) {
     return [
       BoxShadow(
-        color: color.withOpacity(0.3 * intensity),
-        blurRadius: 8,
+        color: color.withOpacity(0.14 * intensity),
+        blurRadius: 10,
+        spreadRadius: 0,
+      ),
+      BoxShadow(
+        color: color.withOpacity(0.08 * intensity),
+        blurRadius: 24,
         spreadRadius: 1,
-      ),
-      BoxShadow(
-        color: color.withOpacity(0.2 * intensity),
-        blurRadius: 16,
-        spreadRadius: 2,
-      ),
-      BoxShadow(
-        color: color.withOpacity(0.1 * intensity),
-        blurRadius: 32,
-        spreadRadius: 4,
       ),
     ];
   }
@@ -240,7 +249,7 @@ class CyberFlyTheme {
 
       // AppBar Theme
       appBarTheme: AppBarTheme(
-        backgroundColor: CyberColors.backgroundDark.withOpacity(0.9),
+        backgroundColor: CyberColors.backgroundDark.withOpacity(0.92),
         foregroundColor: CyberColors.textPrimary,
         elevation: 0,
         centerTitle: true,
@@ -249,29 +258,28 @@ class CyberFlyTheme {
           statusBarIconBrightness: Brightness.light,
         ),
         titleTextStyle: const TextStyle(
-          fontFamily: 'monospace',
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-          color: CyberColors.neonCyan,
-          letterSpacing: 2,
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          color: CyberColors.textPrimary,
+          letterSpacing: 0.2,
         ),
         iconTheme: const IconThemeData(
-          color: CyberColors.neonCyan,
+          color: CyberColors.textPrimary,
         ),
       ),
 
       // Card Theme
       cardTheme: CardThemeData(
         color: CyberColors.backgroundCard,
-        elevation: 8,
+        elevation: 1,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           side: BorderSide(
-            color: CyberColors.neonCyan.withOpacity(0.2),
+            color: Colors.white.withOpacity(0.06),
             width: 1,
           ),
         ),
-        shadowColor: CyberColors.neonCyan.withOpacity(0.3),
+        shadowColor: Colors.black.withOpacity(0.4),
       ),
 
       // Elevated Button Theme
@@ -279,16 +287,15 @@ class CyberFlyTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: CyberColors.neonCyan,
           foregroundColor: CyberColors.backgroundDark,
-          elevation: 8,
-          shadowColor: CyberColors.cyanGlow,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          elevation: 0,
+          shadowColor: Colors.transparent,
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 13),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
           ),
           textStyle: const TextStyle(
-            fontFamily: 'monospace',
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.2,
           ),
         ),
       ),
@@ -297,15 +304,14 @@ class CyberFlyTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: CyberColors.neonCyan,
-          side: const BorderSide(color: CyberColors.neonCyan, width: 1.5),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          side: BorderSide(color: CyberColors.neonCyan.withOpacity(0.55), width: 1.2),
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 13),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
           ),
           textStyle: const TextStyle(
-            fontFamily: 'monospace',
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.2,
           ),
         ),
       ),
@@ -315,9 +321,8 @@ class CyberFlyTheme {
         style: TextButton.styleFrom(
           foregroundColor: CyberColors.neonCyan,
           textStyle: const TextStyle(
-            fontFamily: 'monospace',
             fontWeight: FontWeight.w600,
-            letterSpacing: 0.5,
+            letterSpacing: 0.1,
           ),
         ),
       ),
@@ -326,57 +331,55 @@ class CyberFlyTheme {
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: CyberColors.neonCyan,
         foregroundColor: CyberColors.backgroundDark,
-        elevation: 12,
+        elevation: 3,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
         ),
       ),
 
       // Input Decoration Theme
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: CyberColors.backgroundLight.withOpacity(0.5),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        fillColor: CyberColors.backgroundLight.withOpacity(0.4),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide(
-            color: CyberColors.textDim.withOpacity(0.3),
+            color: Colors.white.withOpacity(0.08),
           ),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide(
-            color: CyberColors.textDim.withOpacity(0.3),
+            color: Colors.white.withOpacity(0.08),
           ),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(
-            color: CyberColors.neonCyan,
-            width: 2,
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(
+            color: CyberColors.neonCyan.withOpacity(0.8),
+            width: 1.4,
           ),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(
-            color: CyberColors.neonRed,
-            width: 1.5,
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(
+            color: CyberColors.neonRed.withOpacity(0.8),
+            width: 1.2,
           ),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(
             color: CyberColors.neonRed,
-            width: 2,
+            width: 1.4,
           ),
         ),
         labelStyle: const TextStyle(
           color: CyberColors.textSecondary,
-          fontFamily: 'monospace',
         ),
         hintStyle: TextStyle(
-          color: CyberColors.textDim.withOpacity(0.7),
-          fontFamily: 'monospace',
+          color: CyberColors.textDim.withOpacity(0.75),
         ),
         prefixIconColor: CyberColors.textSecondary,
         suffixIconColor: CyberColors.textSecondary,
@@ -398,8 +401,7 @@ class CyberFlyTheme {
         valueIndicatorColor: CyberColors.neonCyan,
         valueIndicatorTextStyle: const TextStyle(
           color: CyberColors.backgroundDark,
-          fontFamily: 'monospace',
-          fontWeight: FontWeight.bold,
+          fontWeight: FontWeight.w600,
         ),
       ),
 
@@ -446,14 +448,14 @@ class CyberFlyTheme {
       // Chip Theme
       chipTheme: ChipThemeData(
         backgroundColor: CyberColors.backgroundLight,
-        selectedColor: CyberColors.neonCyan.withOpacity(0.2),
+        selectedColor: CyberColors.neonCyan.withOpacity(0.18),
         labelStyle: const TextStyle(
           color: CyberColors.textPrimary,
-          fontFamily: 'monospace',
           fontSize: 12,
+          fontWeight: FontWeight.w500,
         ),
         side: BorderSide(
-          color: CyberColors.neonCyan.withOpacity(0.3),
+          color: Colors.white.withOpacity(0.08),
         ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
@@ -463,22 +465,22 @@ class CyberFlyTheme {
       // Dialog Theme
       dialogTheme: DialogThemeData(
         backgroundColor: CyberColors.backgroundCard,
-        elevation: 24,
+        elevation: 8,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           side: BorderSide(
-            color: CyberColors.neonCyan.withOpacity(0.3),
+            color: Colors.white.withOpacity(0.08),
           ),
         ),
         titleTextStyle: const TextStyle(
-          color: CyberColors.neonCyan,
-          fontFamily: 'monospace',
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
+          color: CyberColors.textPrimary,
+          fontSize: 17,
+          fontWeight: FontWeight.w600,
         ),
         contentTextStyle: const TextStyle(
           color: CyberColors.textPrimary,
           fontSize: 14,
+          height: 1.4,
         ),
       ),
 
@@ -496,12 +498,11 @@ class CyberFlyTheme {
         backgroundColor: CyberColors.backgroundElevated,
         contentTextStyle: const TextStyle(
           color: CyberColors.textPrimary,
-          fontFamily: 'monospace',
         ),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           side: BorderSide(
-            color: CyberColors.neonCyan.withOpacity(0.3),
+            color: Colors.white.withOpacity(0.08),
           ),
         ),
         behavior: SnackBarBehavior.floating,
@@ -514,33 +515,31 @@ class CyberFlyTheme {
         indicatorColor: CyberColors.neonCyan,
         indicatorSize: TabBarIndicatorSize.label,
         labelStyle: const TextStyle(
-          fontFamily: 'monospace',
-          fontWeight: FontWeight.bold,
-          letterSpacing: 1,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.2,
         ),
         unselectedLabelStyle: const TextStyle(
-          fontFamily: 'monospace',
-          letterSpacing: 1,
+          fontWeight: FontWeight.w500,
+          letterSpacing: 0.2,
         ),
       ),
 
       // Navigation Bar Theme
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: CyberColors.backgroundCard,
-        indicatorColor: CyberColors.neonCyan.withOpacity(0.2),
+        indicatorColor: CyberColors.neonCyan.withOpacity(0.16),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
             return const TextStyle(
               color: CyberColors.neonCyan,
-              fontFamily: 'monospace',
               fontSize: 12,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w600,
             );
           }
           return const TextStyle(
             color: CyberColors.textSecondary,
-            fontFamily: 'monospace',
             fontSize: 12,
+            fontWeight: FontWeight.w500,
           );
         }),
         iconTheme: WidgetStateProperty.resolveWith((states) {
@@ -564,97 +563,92 @@ class CyberFlyTheme {
         size: 24,
       ),
 
-      // Text Theme
+      // Text Theme — sans for display/body; monospace kept only for stat labels / IDs.
       textTheme: const TextTheme(
         displayLarge: TextStyle(
           color: CyberColors.textPrimary,
-          fontFamily: 'monospace',
-          fontSize: 32,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 2,
+          fontSize: 30,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.5,
         ),
         displayMedium: TextStyle(
           color: CyberColors.textPrimary,
-          fontFamily: 'monospace',
-          fontSize: 28,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 1.5,
+          fontSize: 26,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.3,
         ),
         displaySmall: TextStyle(
           color: CyberColors.textPrimary,
-          fontFamily: 'monospace',
-          fontSize: 24,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 1,
+          fontSize: 22,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.2,
         ),
         headlineLarge: TextStyle(
-          color: CyberColors.neonCyan,
-          fontFamily: 'monospace',
-          fontSize: 22,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 1,
+          color: CyberColors.textPrimary,
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0,
         ),
         headlineMedium: TextStyle(
           color: CyberColors.textPrimary,
-          fontFamily: 'monospace',
-          fontSize: 20,
+          fontSize: 18,
           fontWeight: FontWeight.w600,
         ),
         headlineSmall: TextStyle(
           color: CyberColors.textPrimary,
-          fontFamily: 'monospace',
-          fontSize: 18,
+          fontSize: 16,
           fontWeight: FontWeight.w600,
         ),
         titleLarge: TextStyle(
           color: CyberColors.textPrimary,
-          fontFamily: 'monospace',
-          fontSize: 16,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 0.5,
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.1,
         ),
         titleMedium: TextStyle(
           color: CyberColors.textPrimary,
-          fontFamily: 'monospace',
           fontSize: 14,
           fontWeight: FontWeight.w600,
         ),
         titleSmall: TextStyle(
           color: CyberColors.textSecondary,
-          fontFamily: 'monospace',
           fontSize: 12,
           fontWeight: FontWeight.w500,
         ),
         bodyLarge: TextStyle(
           color: CyberColors.textPrimary,
-          fontSize: 16,
+          fontSize: 15,
+          height: 1.45,
         ),
         bodyMedium: TextStyle(
           color: CyberColors.textPrimary,
           fontSize: 14,
+          height: 1.4,
         ),
         bodySmall: TextStyle(
           color: CyberColors.textSecondary,
           fontSize: 12,
+          height: 1.35,
         ),
         labelLarge: TextStyle(
           color: CyberColors.textPrimary,
-          fontFamily: 'monospace',
-          fontSize: 14,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 1,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.2,
         ),
+        // labelMedium/Small stay monospace: they're used for IDs, stats,
+        // and numeric readouts where a fixed-width face helps scanning.
         labelMedium: TextStyle(
           color: CyberColors.textSecondary,
           fontFamily: 'monospace',
           fontSize: 12,
-          letterSpacing: 0.5,
+          letterSpacing: 0.3,
         ),
         labelSmall: TextStyle(
           color: CyberColors.textDim,
           fontFamily: 'monospace',
           fontSize: 10,
-          letterSpacing: 0.5,
+          letterSpacing: 0.3,
         ),
       ),
     );
@@ -683,7 +677,7 @@ class CyberFlyTheme {
 
       // AppBar Theme
       appBarTheme: AppBarTheme(
-        backgroundColor: CyberColorsLight.backgroundLight.withOpacity(0.95),
+        backgroundColor: CyberColorsLight.backgroundLight.withOpacity(0.92),
         foregroundColor: CyberColorsLight.textPrimary,
         elevation: 0,
         centerTitle: true,
@@ -692,24 +686,23 @@ class CyberFlyTheme {
           statusBarIconBrightness: Brightness.dark,
         ),
         titleTextStyle: const TextStyle(
-          fontFamily: 'monospace',
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-          color: CyberColorsLight.primaryCyan,
-          letterSpacing: 2,
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          color: CyberColorsLight.textPrimary,
+          letterSpacing: 0.2,
         ),
         iconTheme: const IconThemeData(
-          color: CyberColorsLight.primaryCyan,
+          color: CyberColorsLight.textPrimary,
         ),
       ),
 
       // Card Theme
       cardTheme: CardThemeData(
         color: CyberColorsLight.cardBackground,
-        elevation: 2,
-        shadowColor: CyberColorsLight.primaryCyan.withOpacity(0.1),
+        elevation: 1,
+        shadowColor: Colors.black.withOpacity(0.08),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           side: BorderSide(
             color: CyberColorsLight.borderColor,
             width: 1,
@@ -722,16 +715,15 @@ class CyberFlyTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: CyberColorsLight.primaryCyan,
           foregroundColor: Colors.white,
-          elevation: 2,
-          shadowColor: CyberColorsLight.primaryCyan.withOpacity(0.3),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          elevation: 0,
+          shadowColor: Colors.transparent,
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 13),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
           ),
           textStyle: const TextStyle(
-            fontFamily: 'monospace',
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.2,
           ),
         ),
       ),
@@ -740,15 +732,14 @@ class CyberFlyTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: CyberColorsLight.primaryCyan,
-          side: const BorderSide(color: CyberColorsLight.primaryCyan, width: 1.5),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          side: BorderSide(color: CyberColorsLight.primaryCyan.withOpacity(0.55), width: 1.2),
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 13),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
           ),
           textStyle: const TextStyle(
-            fontFamily: 'monospace',
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.2,
           ),
         ),
       ),
@@ -758,9 +749,8 @@ class CyberFlyTheme {
         style: TextButton.styleFrom(
           foregroundColor: CyberColorsLight.primaryCyan,
           textStyle: const TextStyle(
-            fontFamily: 'monospace',
             fontWeight: FontWeight.w600,
-            letterSpacing: 0.5,
+            letterSpacing: 0.1,
           ),
         ),
       ),
@@ -769,9 +759,9 @@ class CyberFlyTheme {
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: CyberColorsLight.primaryCyan,
         foregroundColor: Colors.white,
-        elevation: 4,
+        elevation: 3,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
         ),
       ),
 
@@ -779,47 +769,45 @@ class CyberFlyTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: CyberColorsLight.inputBackground,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide(
             color: CyberColorsLight.borderColor,
           ),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide(
             color: CyberColorsLight.borderColor,
           ),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(
-            color: CyberColorsLight.primaryCyan,
-            width: 2,
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(
+            color: CyberColorsLight.primaryCyan.withOpacity(0.8),
+            width: 1.4,
           ),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(
             color: CyberColorsLight.error,
-            width: 1.5,
+            width: 1.2,
           ),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(
             color: CyberColorsLight.error,
-            width: 2,
+            width: 1.4,
           ),
         ),
         labelStyle: const TextStyle(
           color: CyberColorsLight.textSecondary,
-          fontFamily: 'monospace',
         ),
         hintStyle: TextStyle(
           color: CyberColorsLight.textSecondary.withOpacity(0.7),
-          fontFamily: 'monospace',
         ),
         prefixIconColor: CyberColorsLight.textSecondary,
         suffixIconColor: CyberColorsLight.textSecondary,
@@ -841,8 +829,7 @@ class CyberFlyTheme {
         valueIndicatorColor: CyberColorsLight.primaryCyan,
         valueIndicatorTextStyle: const TextStyle(
           color: Colors.white,
-          fontFamily: 'monospace',
-          fontWeight: FontWeight.bold,
+          fontWeight: FontWeight.w600,
         ),
       ),
 
@@ -889,11 +876,11 @@ class CyberFlyTheme {
       // Chip Theme
       chipTheme: ChipThemeData(
         backgroundColor: CyberColorsLight.inputBackground,
-        selectedColor: CyberColorsLight.primaryCyan.withOpacity(0.2),
+        selectedColor: CyberColorsLight.primaryCyan.withOpacity(0.18),
         labelStyle: const TextStyle(
           color: CyberColorsLight.textPrimary,
-          fontFamily: 'monospace',
           fontSize: 12,
+          fontWeight: FontWeight.w500,
         ),
         side: BorderSide(
           color: CyberColorsLight.borderColor,
@@ -908,20 +895,20 @@ class CyberFlyTheme {
         backgroundColor: CyberColorsLight.cardBackground,
         elevation: 8,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           side: BorderSide(
             color: CyberColorsLight.borderColor,
           ),
         ),
         titleTextStyle: const TextStyle(
-          color: CyberColorsLight.primaryCyan,
-          fontFamily: 'monospace',
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
+          color: CyberColorsLight.textPrimary,
+          fontSize: 17,
+          fontWeight: FontWeight.w600,
         ),
         contentTextStyle: const TextStyle(
           color: CyberColorsLight.textPrimary,
           fontSize: 14,
+          height: 1.4,
         ),
       ),
 
@@ -939,10 +926,9 @@ class CyberFlyTheme {
         backgroundColor: CyberColorsLight.textPrimary,
         contentTextStyle: const TextStyle(
           color: Colors.white,
-          fontFamily: 'monospace',
         ),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
         ),
         behavior: SnackBarBehavior.floating,
       ),
@@ -954,33 +940,31 @@ class CyberFlyTheme {
         indicatorColor: CyberColorsLight.primaryCyan,
         indicatorSize: TabBarIndicatorSize.label,
         labelStyle: TextStyle(
-          fontFamily: 'monospace',
-          fontWeight: FontWeight.bold,
-          letterSpacing: 1,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.2,
         ),
         unselectedLabelStyle: TextStyle(
-          fontFamily: 'monospace',
-          letterSpacing: 1,
+          fontWeight: FontWeight.w500,
+          letterSpacing: 0.2,
         ),
       ),
 
       // Navigation Bar Theme
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: CyberColorsLight.cardBackground,
-        indicatorColor: CyberColorsLight.primaryCyan.withOpacity(0.2),
+        indicatorColor: CyberColorsLight.primaryCyan.withOpacity(0.16),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
             return const TextStyle(
               color: CyberColorsLight.primaryCyan,
-              fontFamily: 'monospace',
               fontSize: 12,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w600,
             );
           }
           return const TextStyle(
             color: CyberColorsLight.textSecondary,
-            fontFamily: 'monospace',
             fontSize: 12,
+            fontWeight: FontWeight.w500,
           );
         }),
         iconTheme: WidgetStateProperty.resolveWith((states) {
@@ -1008,93 +992,84 @@ class CyberFlyTheme {
       textTheme: const TextTheme(
         displayLarge: TextStyle(
           color: CyberColorsLight.textPrimary,
-          fontFamily: 'monospace',
-          fontSize: 32,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 2,
+          fontSize: 30,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.5,
         ),
         displayMedium: TextStyle(
           color: CyberColorsLight.textPrimary,
-          fontFamily: 'monospace',
-          fontSize: 28,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 1.5,
+          fontSize: 26,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.3,
         ),
         displaySmall: TextStyle(
           color: CyberColorsLight.textPrimary,
-          fontFamily: 'monospace',
-          fontSize: 24,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 1,
+          fontSize: 22,
+          fontWeight: FontWeight.w700,
         ),
         headlineLarge: TextStyle(
-          color: CyberColorsLight.primaryCyan,
-          fontFamily: 'monospace',
-          fontSize: 22,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 1,
+          color: CyberColorsLight.textPrimary,
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
         ),
         headlineMedium: TextStyle(
           color: CyberColorsLight.textPrimary,
-          fontFamily: 'monospace',
-          fontSize: 20,
+          fontSize: 18,
           fontWeight: FontWeight.w600,
         ),
         headlineSmall: TextStyle(
           color: CyberColorsLight.textPrimary,
-          fontFamily: 'monospace',
-          fontSize: 18,
+          fontSize: 16,
           fontWeight: FontWeight.w600,
         ),
         titleLarge: TextStyle(
           color: CyberColorsLight.textPrimary,
-          fontFamily: 'monospace',
-          fontSize: 16,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 0.5,
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
         ),
         titleMedium: TextStyle(
           color: CyberColorsLight.textPrimary,
-          fontFamily: 'monospace',
           fontSize: 14,
           fontWeight: FontWeight.w600,
         ),
         titleSmall: TextStyle(
           color: CyberColorsLight.textSecondary,
-          fontFamily: 'monospace',
           fontSize: 12,
           fontWeight: FontWeight.w500,
         ),
         bodyLarge: TextStyle(
           color: CyberColorsLight.textPrimary,
-          fontSize: 16,
+          fontSize: 15,
+          height: 1.45,
         ),
         bodyMedium: TextStyle(
           color: CyberColorsLight.textPrimary,
           fontSize: 14,
+          height: 1.4,
         ),
         bodySmall: TextStyle(
           color: CyberColorsLight.textSecondary,
           fontSize: 12,
+          height: 1.35,
         ),
         labelLarge: TextStyle(
           color: CyberColorsLight.textPrimary,
-          fontFamily: 'monospace',
-          fontSize: 14,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 1,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.2,
         ),
+        // labelMedium / labelSmall keep monospace — used for IDs, stats, numeric readouts.
         labelMedium: TextStyle(
           color: CyberColorsLight.textSecondary,
           fontFamily: 'monospace',
           fontSize: 12,
-          letterSpacing: 0.5,
+          letterSpacing: 0.3,
         ),
         labelSmall: TextStyle(
           color: CyberColorsLight.textSecondary,
           fontFamily: 'monospace',
           fontSize: 10,
-          letterSpacing: 0.5,
+          letterSpacing: 0.3,
         ),
       ),
     );

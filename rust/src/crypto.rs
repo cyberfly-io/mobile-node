@@ -145,6 +145,11 @@ pub fn verify_db_name_secure(db_name: &str, public_key_hex: &str) -> Result<()> 
         return Err(anyhow!("Database name and public key cannot be empty"));
     }
     
+    // Length cap to prevent disk exhaustion / abuse from malicious peers
+    if db_name.len() > 256 {
+        return Err(anyhow!("Database name exceeds maximum length of 256 bytes"));
+    }
+    
     // Validate public key hex format
     if public_key_hex.len() != ED25519_PUBLIC_KEY_LENGTH * 2 {
         return Err(anyhow!("Public key must be {} hex characters", ED25519_PUBLIC_KEY_LENGTH * 2));
@@ -177,8 +182,13 @@ pub fn extract_name_from_db(db_name: &str) -> Option<String> {
 
 /// Generate a new Ed25519 keypair
 pub fn generate_keypair() -> (SigningKey, String) {
-    #[allow(deprecated)]
-    let signing_key = SigningKey::generate(&mut rand::thread_rng());
+    // Avoid `SigningKey::generate(&mut rng)` because ed25519-dalek 3.0.0-pre.6 and
+    // rand 0.9 ship different versions of `rand_core::CryptoRng` in the dep tree.
+    // Instead, draw 32 random bytes ourselves and feed them to `from_bytes`.
+    use rand::RngCore;
+    let mut seed = [0u8; 32];
+    rand::thread_rng().fill_bytes(&mut seed);
+    let signing_key = SigningKey::from_bytes(&seed);
     let public_key_hex = hex::encode(signing_key.verifying_key().as_bytes());
     (signing_key, public_key_hex)
 }

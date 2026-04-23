@@ -2,6 +2,17 @@
 
 set -e
 
+# Ensure rustup/cargo are on PATH even when invoked by Gradle daemons or IDEs
+# that don't inherit the user's shell profile (common on macOS).
+if ! command -v rustup >/dev/null 2>&1; then
+    if [ -f "$HOME/.cargo/env" ]; then
+        # shellcheck disable=SC1091
+        . "$HOME/.cargo/env"
+    elif [ -d "$HOME/.cargo/bin" ]; then
+        export PATH="$HOME/.cargo/bin:$PATH"
+    fi
+fi
+
 BASEDIR=$(dirname "$0")
 
 mkdir -p "$CARGOKIT_TOOL_TEMP_DIR"

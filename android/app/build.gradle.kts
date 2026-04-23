@@ -40,8 +40,12 @@ android {
         multiDexEnabled = true
         
         // Enable native debug symbols for Play Store crash reporting
+        // Restrict to arm64-v8a only: modern Android devices are all 64-bit
+        // ARM, and our Rust native lib (via cargokit) is only built for that
+        // target. Prevents AGP from packaging empty x86/armv7 jniLibs.
         ndk {
             debugSymbolLevel = "FULL"
+            abiFilters += listOf("arm64-v8a")
         }
     }
 

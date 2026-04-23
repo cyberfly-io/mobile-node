@@ -38,10 +38,11 @@
     
     <application
         android:label="Cyberfly Node"
-        android:name="${applicationName}"
+        android:name=".CyberflyApplication"
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="false"
-        android:networkSecurityConfig="@xml/network_security_config">
+        android:networkSecurityConfig="@xml/network_security_config"
+        tools:replace="android:name">
         
         <!-- Override flutter_background_service to add foregroundServiceType -->
         <service

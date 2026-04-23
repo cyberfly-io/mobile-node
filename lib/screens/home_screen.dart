@@ -373,13 +373,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           AnimatedListItem(
                             index: 5,
                             child: Text(
-                              'CONNECTED PEERS',
+                              'Connected Peers',
                               style: TextStyle(
-                                fontFamily: 'monospace',
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: CyberTheme.primary(context),
-                                letterSpacing: 2,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: CyberTheme.textPrimary(context),
+                                letterSpacing: 0.2,
                               ),
                             ),
                           ),
@@ -455,13 +454,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ),
               const SizedBox(width: 12),
               Text(
-                'WALLET',
+                'Wallet',
                 style: TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
                   color: CyberTheme.textPrimary(context),
-                  letterSpacing: 2,
+                  letterSpacing: 0.2,
                 ),
               ),
               const Spacer(),

@@ -304,11 +304,10 @@ class StatusBadge extends StatelessWidget {
             Text(
               label ?? config.label,
               style: TextStyle(
-                fontFamily: 'monospace',
                 fontSize: 11,
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w600,
                 color: config.color,
-                letterSpacing: 0.5,
+                letterSpacing: 0.2,
               ),
             ),
           ],
@@ -556,9 +555,8 @@ class _NeonButtonState extends State<NeonButton>
         Text(
           widget.text,
           style: const TextStyle(
-            fontFamily: 'monospace',
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.2,
           ),
         ),
       ],

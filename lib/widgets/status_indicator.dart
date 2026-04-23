@@ -153,17 +153,10 @@ class _StatusIndicatorState extends State<StatusIndicator>
                     Text(
                       statusText,
                       style: TextStyle(
-                        fontFamily: 'monospace',
                         color: statusColor,
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 2,
-                        shadows: [
-                          Shadow(
-                            color: statusColor.withOpacity(0.5),
-                            blurRadius: 8,
-                          ),
-                        ],
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.2,
                       ),
                     ),
                     const SizedBox(width: 10),

@@ -235,11 +235,11 @@ void onStart(ServiceInstance service) async {
           content,
           notificationDetails,
         );
-        // Ensure the notification is set as the foreground service notification to prevent swipe dismissal
-        await service.setForegroundNotificationInfo(
-          title: 'Cyberfly Node Running',
-          content: content,
-        );
+        // NOTE: Do NOT also call service.setForegroundNotificationInfo here.
+        // Calling both races against our custom ongoing/autoCancel flags and
+        // can leave the user with a dismissible notification. The
+        // flutter_local_notifications show() above reuses the same
+        // notificationId as the foreground service, so Android merges them.
     }
   }
 
@@ -248,7 +248,7 @@ void onStart(ServiceInstance service) async {
     if (isNodeRunning) {
       final peerText = connectedPeers == 1 ? 'peer' : 'peers';
       updateNotification(
-        'Syncing form decentralized data • $connectedPeers $peerText connected',
+        'Syncing decentralized data • $connectedPeers $peerText connected',
       );
     } else {
       updateNotification('Node stopped • Tap to restart');

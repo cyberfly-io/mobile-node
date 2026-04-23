@@ -19,7 +19,9 @@ use dashmap::DashMap;
 use ed25519_dalek::SigningKey;
 use futures::StreamExt;
 use iroh::{Endpoint, EndpointId, SecretKey, protocol::Router};
-use iroh::discovery::pkarr::dht::DhtDiscovery;
+use iroh::endpoint::presets;
+use iroh::address_lookup::pkarr::dht::DhtAddressLookup;
+use iroh::address_lookup::mdns::MdnsAddressLookup;
 use iroh_blobs::BlobsProtocol;
 use iroh_gossip::net::Gossip;
 use iroh_gossip::proto::TopicId;
@@ -347,8 +349,8 @@ impl CyberflyNode {
                 let key_bytes = std::fs::read(&key_path)?;
                 SecretKey::try_from(&key_bytes[0..32])?
             } else {
-                #[allow(deprecated)]
-                let key = SecretKey::generate(&mut rand::thread_rng());
+                // iroh 0.98: SecretKey::generate() no longer takes an RNG argument.
+                let key = SecretKey::generate();
                 std::fs::write(&key_path, key.to_bytes())?;
                 key
             }
@@ -380,16 +382,19 @@ impl CyberflyNode {
         let (command_tx, command_rx) = mpsc::channel(100);
         let (event_tx, event_rx) = mpsc::channel(100);
 
-        // Build discovery - DHT + mDNS for local network peers (matching desktop)
-        let dht_discovery = DhtDiscovery::builder();
-        // mDNS discovery for local network peer discovery (like desktop node)
-        let mdns_discovery = iroh::discovery::mdns::MdnsDiscovery::builder();
+        // Build address-lookup services - DHT + mDNS for local network peers (matching desktop).
+        // iroh 0.98 renamed `discovery` → `address_lookup` and `DhtDiscovery`/`MdnsDiscovery`
+        // to `DhtAddressLookup`/`MdnsAddressLookup`.
+        let dht_discovery = DhtAddressLookup::builder();
+        let mdns_discovery = MdnsAddressLookup::builder();
 
-        // Create endpoint with both DHT and mDNS discovery
-        let endpoint = Endpoint::builder()
+        // Create endpoint via the new preset-based builder API.
+        // `presets::N0` keeps n0's default relays + DNS address-lookup configured; we add
+        // DHT and mDNS on top to match the previous behaviour as closely as possible.
+        let endpoint = Endpoint::builder(presets::N0)
             .secret_key(secret_key.clone())
-            .discovery(dht_discovery)
-            .discovery(mdns_discovery)
+            .address_lookup(dht_discovery)
+            .address_lookup(mdns_discovery)
             .relay_mode(iroh::RelayMode::Default)
             .bind()
             .await?;
@@ -443,11 +448,18 @@ impl CyberflyNode {
         // Parse peer IDs first (fast, no network)
         for peer_str in &all_bootstrap_strings {
             if let Some((node_id_str, _)) = peer_str.split_once('@') {
-                if let Ok(peer_node_id) = node_id_str.parse::<EndpointId>() {
-                    if peer_node_id != node_id {
-                        bootstrap_node_ids.push(peer_node_id);
+                match node_id_str.parse::<EndpointId>() {
+                    Ok(peer_node_id) => {
+                        if peer_node_id != node_id {
+                            bootstrap_node_ids.push(peer_node_id);
+                        }
+                    }
+                    Err(e) => {
+                        log_warn!("Invalid bootstrap peer id '{}': {}", node_id_str, e);
                     }
                 }
+            } else {
+                log_warn!("Malformed bootstrap peer entry (missing '@'): '{}'", peer_str);
             }
         }
         
@@ -610,6 +622,63 @@ impl CyberflyNode {
         let pending_latency: Arc<RwLock<HashMap<String, PendingLatencyRequest>>> = 
             Arc::new(RwLock::new(HashMap::new()));
 
+        // Cleanup task: remove orphaned pending latency requests (>60s old)
+        // Prevents unbounded HashMap growth when responses are lost on mobile.
+        {
+            let pending_latency_cleanup = pending_latency.clone();
+            tokio::spawn(async move {
+                let mut interval = tokio::time::interval(Duration::from_secs(30));
+                loop {
+                    interval.tick().await;
+                    let now_ms = chrono::Utc::now().timestamp_millis();
+                    let mut guard = pending_latency_cleanup.write();
+                    let before = guard.len();
+                    guard.retain(|_, req| now_ms.saturating_sub(req.sent_at) < 60_000);
+                    let removed = before.saturating_sub(guard.len());
+                    if removed > 0 {
+                        log_warn!("Cleaned up {} stale pending latency request(s)", removed);
+                    }
+                }
+            });
+        }
+
+        // Cleanup task: remove stale connected_peers entries (>10 min without NeighborUp refresh).
+        // Guards against leaks when NeighborDown events are missed.
+        {
+            let connected_peers_cleanup = connected_peers.clone();
+            tokio::spawn(async move {
+                let mut interval = tokio::time::interval(Duration::from_secs(300));
+                loop {
+                    interval.tick().await;
+                    let now = Instant::now();
+                    let before = connected_peers_cleanup.len();
+                    connected_peers_cleanup.retain(|_, last_seen| {
+                        now.duration_since(*last_seen) < Duration::from_secs(600)
+                    });
+                    let removed = before.saturating_sub(connected_peers_cleanup.len());
+                    if removed > 0 {
+                        log_warn!("Cleaned up {} stale connected peer entries", removed);
+                    }
+                }
+            });
+        }
+
+        // Background task: periodically refresh storage size/key-count cache.
+        // The scan is O(N) over every tree so we don't want it on the status
+        // read hot path. Every 30s is plenty for a "bytes stored" UI stat.
+        {
+            let storage_refresh = storage.clone();
+            tokio::spawn(async move {
+                // Light delay so we don't race with the initial prime scan.
+                tokio::time::sleep(Duration::from_secs(30)).await;
+                let mut interval = tokio::time::interval(Duration::from_secs(30));
+                loop {
+                    interval.tick().await;
+                    storage_refresh.refresh_stats();
+                }
+            });
+        }
+
         // Per-peer backoff state to avoid connect storms after failures.
         // Prefer the shared map provided by NetworkResilience when available.
         let peer_backoff: Arc<DashMap<EndpointId, (u32, chrono::DateTime<chrono::Utc>)>> =
@@ -743,7 +812,10 @@ impl CyberflyNode {
                                             };
                                             
                                             if let Some(sender) = data_sender_clone.lock().await.as_ref() {
-                                                let _ = sender.broadcast(Bytes::from(serde_json::to_vec(&resp_msg).unwrap())).await;
+                                                match serde_json::to_vec(&resp_msg) {
+                                                    Ok(bytes) => { let _ = sender.broadcast(Bytes::from(bytes)).await; }
+                                                    Err(e) => log_error!("Failed to serialize LatencyResponse: {}", e),
+                                                }
                                             }
                                         }
                                     }
@@ -753,7 +825,7 @@ impl CyberflyNode {
                                             let pending = pending_latency_clone.write().remove(&request_id);
                                             pending.map(|p| {
                                                 let latency = if responded_at > p.sent_at {
-                                                    ((responded_at - p.sent_at) / 2) as u64
+                                                    (responded_at.saturating_sub(p.sent_at) / 2) as u64
                                                 } else {
                                                     0
                                                 };
@@ -1297,6 +1369,7 @@ impl CyberflyNode {
             let latency_sender_clone = latency_sender.clone();
             let node_id_clone = node_id.clone();
             let region_clone = region.clone();
+            let resilience_clone_for_latency = resilience.clone();
 
             tokio::spawn(async move {
                 log_info!("⏱️ LATENCY_TOPIC LISTENER TASK STARTED");
@@ -1312,9 +1385,11 @@ impl CyberflyNode {
                             let sender = latency_sender_clone.clone();
                             let node_id = node_id_clone.clone();
                             let region = region_clone.clone();
-                            
+                            // clone the optional Arc per task so the outer value isn't moved
+                            let resilience_for_task = resilience_clone_for_latency.clone();
+
                             tokio::spawn(async move {
-                                if let Err(e) = handle_fetch_latency_request(data, sender, node_id, region).await {
+                                if let Err(e) = handle_fetch_latency_request(data, sender, node_id, region, resilience_for_task).await {
                                     log_error!("Failed to handle fetch latency request: {}", e);
                                 }
                             });
@@ -1367,7 +1442,10 @@ impl CyberflyNode {
                 
                 let disc_msg = DiscoveryMessage::Announce(announcement);
                 if let Some(sender) = discovery_sender_announce.lock().await.as_ref() {
-                    let _ = sender.broadcast(Bytes::from(serde_json::to_vec(&disc_msg).unwrap())).await;
+                    match serde_json::to_vec(&disc_msg) {
+                        Ok(bytes) => { let _ = sender.broadcast(Bytes::from(bytes)).await; }
+                        Err(e) => log_warn!("Failed to serialize Announce: {}", e),
+                    }
                 }
                 
                 // Send peer list
@@ -1382,7 +1460,10 @@ impl CyberflyNode {
                     
                     let disc_msg = DiscoveryMessage::PeerList(list_msg);
                     if let Some(sender) = peer_discovery_sender_announce.lock().await.as_ref() {
-                        let _ = sender.broadcast(Bytes::from(serde_json::to_vec(&disc_msg).unwrap())).await;
+                        match serde_json::to_vec(&disc_msg) {
+                            Ok(bytes) => { let _ = sender.broadcast(Bytes::from(bytes)).await; }
+                            Err(e) => log_warn!("Failed to serialize PeerList: {}", e),
+                        }
                     }
                 }
                 
@@ -1486,7 +1567,13 @@ impl CyberflyNode {
                         
                         for peer_id in &bootstrap_peers_monitor {
                             // Get default bootstrap address
-                            let socket_addr: std::net::SocketAddr = "67.211.219.34:31001".parse().unwrap();
+                            let socket_addr: std::net::SocketAddr = match "67.211.219.34:31001".parse() {
+                                Ok(addr) => addr,
+                                Err(e) => {
+                                    log_warn!("Failed to parse bootstrap socket addr: {}", e);
+                                    continue;
+                                }
+                            };
                             
                             // Try relay-assisted connection
                             if let Some(relay_url) = relay_urls.first() {
@@ -1590,7 +1677,10 @@ impl CyberflyNode {
                             .as_secs(),
                     };
                     if let Some(sender) = data_sender.lock().await.as_ref() {
-                        let _ = sender.broadcast(Bytes::from(serde_json::to_vec(&msg).unwrap())).await;
+                        match serde_json::to_vec(&msg) {
+                            Ok(bytes) => { let _ = sender.broadcast(Bytes::from(bytes)).await; }
+                            Err(e) => log_warn!("Failed to serialize Custom gossip: {}", e),
+                        }
                     }
                 }
                 NodeCommand::SendLatencyRequest { peer_id: _, response } => {
@@ -1619,7 +1709,10 @@ impl CyberflyNode {
                     };
                     
                     if let Some(sender) = data_sender.lock().await.as_ref() {
-                        let _ = sender.broadcast(Bytes::from(serde_json::to_vec(&msg).unwrap())).await;
+                        match serde_json::to_vec(&msg) {
+                            Ok(bytes) => { let _ = sender.broadcast(Bytes::from(bytes)).await; }
+                            Err(e) => log_warn!("Failed to serialize LatencyRequest: {}", e),
+                        }
                     }
                     
                     // For simplicity, we return immediately and rely on events
@@ -1839,6 +1932,7 @@ async fn handle_fetch_latency_request(
     latency_sender: Arc<Mutex<Option<GossipSender>>>,
     node_id: String,
     region: Option<String>,
+    resilience: Option<Arc<NetworkResilience>>,
 ) -> Result<()> {
     use std::time::Instant;
     
@@ -1961,7 +2055,8 @@ async fn handle_fetch_latency_request(
     let start_time = Instant::now();
     let result = req_builder.send().await;
     let latency_ms = start_time.elapsed().as_secs_f64() * 1000.0;
-    
+    // Try to parse the requester pubkey into an EndpointId for resilience recording
+    let requester_peer: Option<EndpointId> = signed_request.pubkey.parse::<EndpointId>().ok();
     let response = match result {
         Ok(resp) => {
             let status = resp.status().as_u16();
@@ -1973,6 +2068,13 @@ async fn handle_fetch_latency_request(
             log_info!("✅ Latency request {} completed: {:.2} ms (status: {})", 
                 request_id, latency_ms, status);
             
+            // Notify resilience of success (if available)
+            if let Some(res) = &resilience {
+                if let Some(peer_id) = requester_peer {
+                    res.record_success(peer_id, Some(latency_ms));
+                }
+            }
+
             FetchLatencyResponse {
                 request_id: request_id.clone(),
                 status,
@@ -1985,6 +2087,12 @@ async fn handle_fetch_latency_request(
         }
         Err(e) => {
             log_error!("❌ Latency request {} failed: {}", request_id, e);
+            // Notify resilience of failure (if available)
+            if let Some(res) = &resilience {
+                if let Some(peer_id) = requester_peer {
+                    res.record_failure(peer_id);
+                }
+            }
             
             FetchLatencyResponse {
                 request_id: request_id.clone(),

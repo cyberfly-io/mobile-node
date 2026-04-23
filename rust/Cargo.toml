@@ -9,10 +9,14 @@ crate-type = ["cdylib", "staticlib"]
 [dependencies]
 flutter_rust_bridge = "=2.11.1"
 
-# Iroh networking stack - matching cyberfly-rust-node versions
-iroh = { version = "0.95", features = ["discovery-local-network", "discovery-pkarr-dht"] }
-iroh-gossip = "0.95"
-iroh-blobs = "0.97"
+# Iroh networking stack - upgraded to 0.98.x per
+# https://www.iroh.computer/blog/iroh-0-98-0-getting-back-to-traversing-nats
+# Note: feature flags `discovery-*` were renamed to `address-lookup-*`.
+iroh = { version = "0.98", features = ["address-lookup-mdns", "address-lookup-pkarr-dht"] }
+iroh-gossip = "0.98"
+# iroh-blobs 0.100 is the version compatible with iroh 0.98. Upstream flags it as
+# not yet production-quality; revisit if issues arise.
+iroh-blobs = "0.100"
 
 # Storage
 sled = { version = "0.34", features = ["compression"] }
@@ -59,6 +63,8 @@ chrono = { version = "0.4", features = ["serde"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
 android_logger = "0.14"
+jni = "0.21"
+ndk-context = "0.1"
 
 [build-dependencies]
 flutter_rust_bridge_codegen = "=2.11.1"

@@ -1,16 +1,24 @@
 //! Storage module using sled embedded database
 
 use std::path::PathBuf;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use anyhow::Result;
 use sled::Db;
 
 /// Special tree name for storing the operations log (for sync)
 const OPLOG_TREE: &str = "__oplog__";
 
-/// Storage wrapper for sled database
+/// Storage wrapper for sled database.
+///
+/// `size_bytes` and `key_count` are O(N) scans over every tree, so they are cached
+/// in atomics and refreshed by a background task (see `refresh_stats`). Readers
+/// (the status/UI path) get cheap atomic loads.
 #[derive(Clone)]
 pub struct Storage {
     db: Db,
+    cached_size_bytes: Arc<AtomicU64>,
+    cached_key_count: Arc<AtomicU64>,
 }
 
 impl Storage {
@@ -23,8 +31,15 @@ impl Storage {
             .mode(sled::Mode::HighThroughput)   // Optimize for throughput
             .use_compression(true)              // Must match previous setting
             .open()?;
-        
-        Ok(Self { db })
+
+        let storage = Self {
+            db,
+            cached_size_bytes: Arc::new(AtomicU64::new(0)),
+            cached_key_count: Arc::new(AtomicU64::new(0)),
+        };
+        // Prime the cache so the first status read is accurate.
+        storage.refresh_stats();
+        Ok(storage)
     }
     
     /// Store a signed operation to the operations log
@@ -107,11 +122,25 @@ impl Storage {
         Ok(names)
     }
 
-    /// Get storage size in bytes (actual data size, not file size)
+    /// Get cached storage size in bytes. Refreshed by `refresh_stats()`; this is
+    /// a cheap atomic load suitable for frequent polling from the UI.
     pub fn size_bytes(&self) -> Result<u64> {
+        Ok(self.cached_size_bytes.load(Ordering::Relaxed))
+    }
+
+    /// Get cached total key count. Refreshed by `refresh_stats()`.
+    pub fn key_count(&self) -> Result<usize> {
+        Ok(self.cached_key_count.load(Ordering::Relaxed) as usize)
+    }
+
+    /// Recompute size/key-count by scanning every tree. O(N) — call from a
+    /// background task, not from request paths.
+    pub fn refresh_stats(&self) {
         let mut total_size: u64 = 0;
+        let mut total_keys: u64 = 0;
         for name in self.db.tree_names() {
             if let Ok(tree) = self.db.open_tree(&name) {
+                total_keys += tree.len() as u64;
                 for item in tree.iter() {
                     if let Ok((key, value)) = item {
                         total_size += key.len() as u64;
@@ -120,18 +149,8 @@ impl Storage {
                 }
             }
         }
-        Ok(total_size)
-    }
-
-    /// Get total key count across all databases
-    pub fn key_count(&self) -> Result<usize> {
-        let mut count = 0;
-        for name in self.db.tree_names() {
-            if let Ok(tree) = self.db.open_tree(&name) {
-                count += tree.len();
-            }
-        }
-        Ok(count)
+        self.cached_size_bytes.store(total_size, Ordering::Relaxed);
+        self.cached_key_count.store(total_keys, Ordering::Relaxed);
     }
 
     /// Flush to disk

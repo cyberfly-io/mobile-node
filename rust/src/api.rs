@@ -168,8 +168,10 @@ pub fn init_logging() {
     
     #[cfg(not(target_os = "android"))]
     {
+        // iroh 0.98 folded `iroh_net` into `iroh`; keep `iroh_relay` muted since
+        // relay client chatter is noisy at info level.
         let _ = tracing_subscriber::fmt()
-            .with_env_filter("warn,cyberfly=info,iroh=error,iroh_gossip=error,iroh_net=error,quinn=error")
+            .with_env_filter("warn,cyberfly=info,iroh=error,iroh_gossip=error,iroh_relay=error,quinn=error")
             .try_init();
     }
 }
